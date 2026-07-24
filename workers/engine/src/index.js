@@ -1,13 +1,16 @@
 /**
- * Tetik Pinger + Sitemap + OG-превью — Cloudflare Worker
- * -------------------------------------------------------
- * 1. Cron каждые 6 часов: лёгкий REST-запрос — активность против паузы Supabase.
+ * Tetik Pinger + Sitemap + OG-превью + Мониторинг — Cloudflare Worker
+ * --------------------------------------------------------------------
+ * 1. Cron каждые 6 часов: проверка сайта и базы. Запрос к базе заодно
+ *    держит Supabase активным (против паузы бесплатного тарифа).
+ *    При сбое зовёт edge-функцию alert-mailer — владельцу приходит письмо.
  * 2. GET /sitemap.xml — живая карта сайта из базы.
  * 3. GET /l/{id} — для ботов-превьюшников (WhatsApp, Telegram, соцсети)
  *    отдаёт OG-разметку с фото, названием и ценой объявления;
  *    людям прозрачно проксирует SPA с Pages.
  *
- * Vars: SUPABASE_URL, SUPABASE_ANON_KEY (anon-ключ публичный, не секрет)
+ * Vars: SUPABASE_URL, SUPABASE_ANON_KEY (anon-ключ публичный, не секрет),
+ *       ALERT_URL, ALERT_TOKEN (токен сигнализации, дублируется в Vault)
  */
 
 const SITE = 'https://tetik.radev.digital'
@@ -92,11 +95,45 @@ async function ogListing(env, id) {
 </head><body><a href="${pageUrl}">${title}</a></body></html>`
 }
 
+/* ---- мониторинг: сайт + база; сбой → письмо владельцу ---- */
+async function healthProblems(env) {
+  const problems = []
+  try {
+    const r = await fetch(`${PAGES}/`, { headers: { accept: 'text/html' } })
+    const html = r.ok ? await r.text() : ''
+    if (!r.ok) problems.push(`Сайт tetik.radev.digital: ошибка HTTP ${r.status}`)
+    else if (!/tetik/i.test(html)) problems.push('Сайт отвечает, но отдаёт неожиданный контент')
+  } catch (e) {
+    problems.push(`Сайт недоступен: ${String(e && e.message).slice(0, 120)}`)
+  }
+  try {
+    // этот же запрос — активность против паузы Supabase
+    const r = await fetch(`${env.SUPABASE_URL}/rest/v1/listings?select=id&limit=1`, {
+      headers: sbHeaders(env),
+    })
+    if (!r.ok) problems.push(`База данных (Supabase): ошибка HTTP ${r.status}`)
+  } catch (e) {
+    problems.push(`База данных недоступна: ${String(e && e.message).slice(0, 120)}`)
+  }
+  return problems
+}
+
+async function notifyOwner(env, problems) {
+  if (!env.ALERT_URL || !env.ALERT_TOKEN || problems.length === 0) return
+  await fetch(env.ALERT_URL, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-alert-token': env.ALERT_TOKEN,
+      ...sbHeaders(env),
+    },
+    body: JSON.stringify({ problems, subject: '🔴 Tetik: обнаружена проблема' }),
+  }).catch(() => {})
+}
+
 export default {
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(
-      fetch(`${env.SUPABASE_URL}/rest/v1/listings?select=id&limit=1`, { headers: sbHeaders(env) }),
-    )
+    ctx.waitUntil(healthProblems(env).then((p) => notifyOwner(env, p)))
   },
 
   async fetch(req, env, ctx) {

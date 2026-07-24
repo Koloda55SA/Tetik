@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import ListingCard, { ListingCardSkeleton } from '../components/ListingCard'
 import Icon from '../components/Icons'
 import { fetchListings } from '../lib/db'
-import { CATEGORIES, type Listing } from '../lib/types'
+import { CATEGORIES, POPULAR_CARS, type Listing } from '../lib/types'
 
 export default function Home() {
   const { t, i18n } = useTranslation()
@@ -76,6 +76,24 @@ export default function Home() {
               <p className="absolute inset-x-2.5 bottom-2.5 text-[13px] font-bold leading-tight text-white md:text-sm">
                 {i18n.language === 'ky' ? c.ky : c.ru}
               </p>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* ======= Найди по своей машине (SEO-хаб) ======= */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="section-title">Найди по своей машине</h2>
+          <Link to="/cars" className="inline-flex items-center gap-1 text-sm font-bold text-accent hover:text-accent-hover">
+            {t('nav.cars')}
+            <Icon name="arrowRight" size={16} />
+          </Link>
+        </div>
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 pb-1 md:mx-0 md:flex-wrap md:px-0">
+          {POPULAR_CARS.slice(0, 14).map((c) => (
+            <Link key={c.slug} to={`/cars/${c.slug}`} className="chip shrink-0">
+              {c.brand} {c.model}
             </Link>
           ))}
         </div>

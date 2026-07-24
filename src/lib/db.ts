@@ -145,6 +145,57 @@ export function subscribeMyDms(uid: string, cb: (chats: ChatMeta[]) => void): Un
   }
 }
 
+/** Все группы, где я участник (для «мои группы») */
+export async function myGroupIds(uid: string): Promise<string[]> {
+  const { data } = await supabase
+    .from('chats').select('id').eq('type', 'group').contains('members', [uid])
+  return ((data as { id: string }[]) || []).map((r) => r.id)
+}
+
+/** Вступить в группу */
+export async function joinGroup(chatId: string, displayName?: string) {
+  const { error } = await supabase.rpc('join_group', {
+    chat_id: chatId,
+    display_name: displayName ?? null,
+  })
+  if (error) throw error
+}
+
+/** Выйти из группы */
+export async function leaveGroup(chatId: string) {
+  const { error } = await supabase.rpc('leave_group', { chat_id: chatId })
+  if (error) throw error
+}
+
+/** Создать группу — RLS пропустит только админа */
+export async function createGroup(input: {
+  title: string
+  region?: string
+  topic?: string
+  owner: { uid: string; name: string }
+}): Promise<string> {
+  const base = slugify(input.title) || 'group'
+  const id = `g-${base}-${Math.random().toString(36).slice(2, 6)}`
+  const { error } = await supabase.from('chats').insert({
+    id,
+    type: 'group',
+    title: input.title.trim().slice(0, 60),
+    region: input.region?.trim().slice(0, 40) || '',
+    topic: input.topic?.trim().slice(0, 80) || '',
+    members: [input.owner.uid],
+    memberNames: { [input.owner.uid]: input.owner.name },
+    lastMsgAt: new Date().toISOString(),
+  })
+  if (error) throw error
+  return id
+}
+
+/** Удалить группу — RLS пропустит только админа */
+export async function deleteGroup(chatId: string) {
+  const { error } = await supabase.from('chats').delete().eq('id', chatId)
+  if (error) throw error
+}
+
 export async function getChat(id: string): Promise<ChatMeta | null> {
   const { data } = await supabase.from('chats').select('*').eq('id', id).maybeSingle()
   return (data as ChatMeta) || null
@@ -365,3 +416,33 @@ export async function deleteProduct(id: string) {
   const { error } = await supabase.from('products').delete().eq('id', id)
   if (error) throw error
 }
+
+/* ---------------- SEO-страницы ---------------- */
+
+/** Объявления по марке/модели (+ город) — для страниц «Запчасти на X» */
+export async function fetchByCar(
+  brand: string,
+  model: string,
+  city?: string,
+  max = 48,
+): Promise<Listing[]> {
+  let q = supabase
+    .from('listings').select('*').eq('status', 'active').eq('brand', brand)
+    .ilike('model', `%${model}%`)
+  if (city) q = q.eq('city', city)
+  const { data } = await q.order('bumpedAt', { ascending: false }).limit(max)
+  return (data as Listing[]) || []
+}
+
+/** Сколько активных объявлений по каждой модели — для витрины моделей */
+export async function countByModels(): Promise<Record<string, number>> {
+  const { data } = await supabase
+    .from('listings').select('brand,model').eq('status', 'active').limit(2000)
+  const out: Record<string, number> = {}
+  for (const r of (data as { brand: string; model: string }[]) || []) {
+    const key = `${r.brand}|${r.model}`.toLowerCase()
+    out[key] = (out[key] || 0) + 1
+  }
+  return out
+}
+

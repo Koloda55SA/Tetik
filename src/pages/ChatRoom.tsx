@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'r
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
-import { getChat, markChatRead, sendMessage, subscribeMessages, uploadChatMedia } from '../lib/db'
+import { getChat, joinGroup, markChatRead, sendMessage, subscribeMessages, uploadChatMedia } from '../lib/db'
 import { avatarHue, avatarInk } from '../lib/format'
 import type { ChatMessage, ChatMeta } from '../lib/types'
 import Icon from '../components/Icons'
@@ -53,6 +53,26 @@ export default function ChatRoom() {
   }, [])
 
   const sender = user ? { uid: user.uid, name: profile?.displayName || 'Пользователь' } : null
+
+  // В группе писать могут только участники
+  const isGroup = chat?.type === 'group'
+  const isMember = !!user && !!chat && chat.members.includes(user.uid)
+  const canWrite = !!user && (!isGroup || isMember)
+  const [joining, setJoining] = useState(false)
+
+  async function onJoinHere() {
+    if (!user || !id || joining) return
+    setJoining(true)
+    try {
+      await joinGroup(id, profile?.displayName)
+      const fresh = await getChat(id)
+      setChat(fresh)
+    } catch {
+      alert(t('common.error'))
+    } finally {
+      setJoining(false)
+    }
+  }
 
   async function onSend(e: FormEvent) {
     e.preventDefault()
@@ -217,7 +237,19 @@ export default function ChatRoom() {
       </div>
 
       {/* Инпут */}
-      {user ? (
+      {!user ? (
+        <Link to="/login" className="btn-primary mt-2 w-full">
+          {t('chat.needAuth')}
+        </Link>
+      ) : !canWrite ? (
+        <div className="card mt-2 p-4 text-center">
+          <p className="text-sm text-muted">{t('chat.joinToWrite')}</p>
+          <button onClick={onJoinHere} disabled={joining} className="btn-primary mt-3 w-full disabled:opacity-40">
+            <Icon name="plus" size={16} />
+            {joining ? t('common.loading') : t('chat.join')}
+          </button>
+        </div>
+      ) : (
         recording ? (
           /* Режим записи голосового */
           <div className="card flex items-center gap-3 p-2">
@@ -282,10 +314,6 @@ export default function ChatRoom() {
             )}
           </form>
         )
-      ) : (
-        <Link to="/login" className="btn-primary mt-2 w-full">
-          {t('chat.needAuth')}
-        </Link>
       )}
     </div>
   )

@@ -2,4 +2,16 @@ User-agent: *
 Allow: /
 Disallow: /profile
 Disallow: /chats
+Disallow: /welcome
+Disallow: /login
+Disallow: /favorites
+Disallow: /store/new
+Allow: /cars
+
+User-agent: Yandex
+Allow: /
+Disallow: /profile
+Disallow: /chats
+Clean-param: utm_source&utm_medium&utm_campaign
+
 Sitemap: https://tetik.radev.digital/sitemap.xml

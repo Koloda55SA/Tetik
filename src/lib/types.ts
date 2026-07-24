@@ -72,7 +72,7 @@ export interface UserProfile {
   phone?: string
   whatsapp?: string
   photoURL?: string
-  role: 'user'
+  role: 'user' | 'admin'
   lang?: 'ru' | 'ky'
   createdAt: Ts
 }
@@ -154,3 +154,63 @@ export function waLink(phone: string, text?: string): string {
   const p = phone.replace(/[^0-9]/g, '')
   return `https://wa.me/${p}${text ? `?text=${encodeURIComponent(text)}` : ''}`
 }
+
+/** Самые ходовые машины Кыргызстана — для SEO-страниц и подсказок */
+export interface PopularCar { brand: string; model: string; slug: string }
+
+export const POPULAR_CARS: PopularCar[] = [
+  { brand: 'Toyota', model: 'Camry', slug: 'toyota-camry' },
+  { brand: 'Daewoo', model: 'Matiz', slug: 'daewoo-matiz' },
+  { brand: 'Honda', model: 'Fit', slug: 'honda-fit' },
+  { brand: 'Daewoo', model: 'Nexia', slug: 'daewoo-nexia' },
+  { brand: 'Hyundai', model: 'Sonata', slug: 'hyundai-sonata' },
+  { brand: 'Lexus', model: 'RX', slug: 'lexus-rx' },
+  { brand: 'Honda', model: 'CR-V', slug: 'honda-cr-v' },
+  { brand: 'Toyota', model: 'Prius', slug: 'toyota-prius' },
+  { brand: 'Honda', model: 'Accord', slug: 'honda-accord' },
+  { brand: 'Honda', model: 'Odyssey', slug: 'honda-odyssey' },
+  { brand: 'Toyota', model: 'RAV4', slug: 'toyota-rav4' },
+  { brand: 'Mercedes-Benz', model: 'E-класс', slug: 'mercedes-benz-e-klass' },
+  { brand: 'Mercedes-Benz', model: 'C-класс', slug: 'mercedes-benz-c-klass' },
+  { brand: 'BMW', model: '5 серия', slug: 'bmw-5' },
+  { brand: 'BMW', model: '3 серия', slug: 'bmw-3' },
+  { brand: 'Volkswagen', model: 'Passat', slug: 'volkswagen-passat' },
+  { brand: 'Audi', model: '80', slug: 'audi-80' },
+  { brand: 'Audi', model: 'A6', slug: 'audi-a6' },
+  { brand: 'Subaru', model: 'Outback', slug: 'subaru-outback' },
+  { brand: 'Subaru', model: 'Legacy', slug: 'subaru-legacy' },
+  { brand: 'Hyundai', model: 'Accent', slug: 'hyundai-accent' },
+  { brand: 'Hyundai', model: 'Grandeur', slug: 'hyundai-grandeur' },
+  { brand: 'Kia', model: 'Rio', slug: 'kia-rio' },
+  { brand: 'Kia', model: 'K5', slug: 'kia-k5' },
+  { brand: 'Kia', model: 'Sorento', slug: 'kia-sorento' },
+  { brand: 'Toyota', model: 'Corolla', slug: 'toyota-corolla' },
+  { brand: 'Toyota', model: 'Land Cruiser Prado', slug: 'toyota-land-cruiser-prado' },
+  { brand: 'Lada (ВАЗ)', model: '2107', slug: 'lada-2107' },
+  { brand: 'Lada (ВАЗ)', model: '2106', slug: 'lada-2106' },
+  { brand: 'Mitsubishi', model: 'Galant', slug: 'mitsubishi-galant' },
+  { brand: 'Mitsubishi', model: 'Outlander', slug: 'mitsubishi-outlander' },
+  { brand: 'Nissan', model: 'X-Trail', slug: 'nissan-x-trail' },
+  { brand: 'Chevrolet', model: 'Lacetti', slug: 'chevrolet-lacetti' },
+  { brand: 'Lexus', model: 'ES', slug: 'lexus-es' },
+  { brand: 'Opel', model: 'Vectra', slug: 'opel-vectra' },
+  { brand: 'Toyota', model: 'Highlander', slug: 'toyota-highlander' },
+  { brand: 'Honda', model: 'Stepwgn', slug: 'honda-stepwgn' },
+  { brand: 'Toyota', model: 'Ipsum', slug: 'toyota-ipsum' },
+  { brand: 'Mercedes-Benz', model: 'Sprinter', slug: 'mercedes-benz-sprinter' },
+  { brand: 'BYD', model: 'Song Plus', slug: 'byd-song-plus' },
+]
+
+/** Что чаще всего ищут — для перелинковки и подсказок поиска */
+export const POPULAR_PARTS = [
+  'фара', 'бампер', 'тормозные колодки', 'стойка амортизатора',
+  'коробка автомат', 'радиатор', 'зеркало', 'двигатель',
+] as const
+
+export function carBySlug(slug: string): PopularCar | undefined {
+  return POPULAR_CARS.find((c) => c.slug === slug)
+}
+
+/** Города для SEO-страниц (крупнейшие) */
+export const SEO_CITIES = ['Бишкек', 'Ош', 'Джалал-Абад', 'Каракол'] as const
+

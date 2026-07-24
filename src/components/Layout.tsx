@@ -92,6 +92,7 @@ export default function Layout() {
           <nav className="hidden items-center gap-0.5 lg:flex">
             {[
               { to: '/bazar', key: 'nav.bazar' },
+              { to: '/cars', key: 'nav.cars' },
               { to: '/chats', key: 'nav.chats' },
               { to: '/stores', key: 'nav.stores' },
             ].map((l) => (
@@ -163,6 +164,7 @@ export default function Layout() {
             <p className="mb-3 font-bold uppercase tracking-wider text-white/40">{t('nav.bazar')}</p>
             <div className="flex flex-col gap-2">
               <Link to="/bazar" className="hover:text-white">{t('home.allListings')}</Link>
+              <Link to="/cars" className="hover:text-white">{t('nav.cars')}</Link>
               <Link to="/new" className="hover:text-white">{t('nav.sell')}</Link>
               <Link to="/chats" className="hover:text-white">{t('nav.chats')}</Link>
               <Link to="/stores" className="hover:text-white">{t('nav.stores')}</Link>

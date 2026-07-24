@@ -135,8 +135,9 @@ export function subscribeMyDms(uid: string, cb: (chats: ChatMeta[]) => void): Un
     cb((data as ChatMeta[]) || [])
   }
   load()
+  // уникальное имя канала: компоненты могут подписываться параллельно (навигация + страница чатов)
   const channel = supabase
-    .channel(`dms-${uid}`)
+    .channel(`dms-${uid}-${Math.random().toString(36).slice(2, 9)}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'chats' }, () => load())
     .subscribe()
   return () => {
@@ -181,7 +182,7 @@ export function subscribeMessages(chatId: string, cb: (msgs: ChatMessage[]) => v
   }
   load()
   const channel = supabase
-    .channel(`chat-${chatId}`)
+    .channel(`chat-${chatId}-${Math.random().toString(36).slice(2, 9)}`)
     .on(
       'postgres_changes',
       { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatId=eq.${chatId}` },

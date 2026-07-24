@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
 import { fetchChatReads, subscribeMyDms } from '../lib/db'
 import { setLang } from '../lib/i18n'
+import type { ChatMeta } from '../lib/types'
 import Icon from './Icons'
 
 export default function Layout() {
@@ -20,25 +21,35 @@ export default function Layout() {
     }
   }, [loading, user, profile, loc.pathname])
 
-  // Непрочитанные личные чаты
+  // Непрочитанные личные чаты: одна подписка на пользователя + пересчёт при навигации
   const [unread, setUnread] = useState(0)
+  const [dms, setDms] = useState<ChatMeta[]>([])
   useEffect(() => {
     if (!user) {
+      setDms([])
+      return
+    }
+    return subscribeMyDms(user.uid, setDms)
+  }, [user?.uid])
+
+  useEffect(() => {
+    if (!user || dms.length === 0) {
       setUnread(0)
       return
     }
-    const unsub = subscribeMyDms(user.uid, async (dms) => {
-      try {
-        const reads = await fetchChatReads(user.uid)
+    let alive = true
+    fetchChatReads(user.uid)
+      .then((reads) => {
+        if (!alive) return
         setUnread(
           dms.filter((c) => c.id && c.lastMsgAt && (!reads[c.id] || c.lastMsgAt > reads[c.id])).length,
         )
-      } catch {
-        /* не критично */
-      }
-    })
-    return unsub
-  }, [user?.uid, loc.pathname])
+      })
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [user?.uid, dms, loc.pathname])
 
   function toggleLang() {
     setLang(i18n.language === 'ru' ? 'ky' : 'ru')

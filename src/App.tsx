@@ -11,6 +11,8 @@ import StorePage from './pages/StorePage'
 import Login from './pages/Login'
 import Onboarding from './pages/Onboarding'
 import Profile from './pages/Profile'
+import Favorites from './pages/Favorites'
+import StoreNew from './pages/StoreNew'
 
 export default function App() {
   return (
@@ -27,6 +29,8 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/welcome" element={<Onboarding />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/favorites" element={<Favorites />} />
+        <Route path="/store/new" element={<StoreNew />} />
         <Route path="*" element={<Home />} />
       </Route>
     </Routes>

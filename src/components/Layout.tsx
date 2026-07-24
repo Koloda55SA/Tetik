@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
+import { fetchChatReads, subscribeMyDms } from '../lib/db'
 import { setLang } from '../lib/i18n'
 import Icon from './Icons'
 
@@ -18,6 +19,26 @@ export default function Layout() {
       nav('/welcome', { replace: true })
     }
   }, [loading, user, profile, loc.pathname])
+
+  // Непрочитанные личные чаты
+  const [unread, setUnread] = useState(0)
+  useEffect(() => {
+    if (!user) {
+      setUnread(0)
+      return
+    }
+    const unsub = subscribeMyDms(user.uid, async (dms) => {
+      try {
+        const reads = await fetchChatReads(user.uid)
+        setUnread(
+          dms.filter((c) => c.id && c.lastMsgAt && (!reads[c.id] || c.lastMsgAt > reads[c.id])).length,
+        )
+      } catch {
+        /* не критично */
+      }
+    })
+    return unsub
+  }, [user?.uid, loc.pathname])
 
   function toggleLang() {
     setLang(i18n.language === 'ru' ? 'ky' : 'ru')
@@ -67,18 +88,29 @@ export default function Layout() {
                 key={l.to}
                 to={l.to}
                 className={({ isActive }) =>
-                  `rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
+                  `relative rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
                     isActive ? 'bg-surface2 text-ink' : 'text-muted hover:text-ink'
                   }`
                 }
               >
                 {t(l.key)}
+                {l.to === '/chats' && unread > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
+                    {unread}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
 
           <div className="flex-1 md:hidden" />
           <div className="hidden flex-1 lg:hidden md:block" />
+
+          {user && (
+            <Link to="/favorites" className="icon-btn hidden md:inline-grid" title={t('fav.title')}>
+              <Icon name="heart" size={20} />
+            </Link>
+          )}
 
           <button onClick={toggleLang} className="icon-btn text-xs font-extrabold" title={t('profile.lang')}>
             {i18n.language === 'ru' ? 'KG' : 'RU'}
@@ -153,7 +185,14 @@ export default function Layout() {
                 to={tab.to}
                 className={`flex flex-col items-center gap-1 py-2.5 text-[10px] font-bold ${active ? 'text-ink' : 'text-muted'}`}
               >
-                <Icon name={tab.icon} size={22} strokeWidth={active ? 2.4 : 2} />
+                <span className="relative">
+                  <Icon name={tab.icon} size={22} strokeWidth={active ? 2.4 : 2} />
+                  {tab.to === '/chats' && unread > 0 && (
+                    <span className="absolute -right-2 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
+                      {unread}
+                    </span>
+                  )}
+                </span>
                 {t(tab.key)}
               </NavLink>
             )

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
-import { createOrder, getStoreBySlug, listProducts } from '../lib/db'
+import { addProduct, createOrder, deleteProduct, getStoreBySlug, listProducts, uploadPhotos } from '../lib/db'
 import { avatarHue, avatarInk } from '../lib/format'
 import { formatPrice, waLink, type Product, type Store } from '../lib/types'
 import Icon from '../components/Icons'
@@ -18,7 +18,18 @@ export default function StorePage() {
   const [ordering, setOrdering] = useState<Product | null>(null)
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [addingProduct, setAddingProduct] = useState(false)
+  const [productBusy, setProductBusy] = useState(false)
+  const [productFile, setProductFile] = useState<File | null>(null)
+  const [productPreview, setProductPreview] = useState<string | null>(null)
   useTitle(store?.name || undefined)
+
+  const isOwner = !!user && !!store && user.uid === store.ownerUid
+
+  async function reloadProducts() {
+    if (!store?.id) return
+    listProducts(store.id).then(setProducts).catch(() => {})
+  }
 
   useEffect(() => {
     if (!slug) return
@@ -51,6 +62,38 @@ export default function StorePage() {
         <p className="mt-3 text-sm text-muted">{t('store.empty')}</p>
       </div>
     )
+  }
+
+  async function submitProduct(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!user || !store || productBusy) return
+    setProductBusy(true)
+    try {
+      const fd = new FormData(e.currentTarget)
+      const name = String(fd.get('pname') || '').trim()
+      const price = Number(fd.get('pprice') || 0)
+      const inStock = (e.currentTarget.querySelector('[name="pinStock"]') as HTMLInputElement)?.checked ?? true
+      const desc = String(fd.get('pdesc') || '').trim()
+      let photos: string[] = []
+      if (productFile) {
+        photos = await uploadPhotos(user.uid, [productFile], 'stores')
+      }
+      await addProduct({ storeId: store.id!, name, price, photos, inStock, desc: desc || undefined })
+      setAddingProduct(false)
+      setProductFile(null)
+      setProductPreview(null)
+      await reloadProducts()
+    } catch {
+      // silent
+    } finally {
+      setProductBusy(false)
+    }
+  }
+
+  async function handleDeleteProduct(id: string) {
+    if (!window.confirm('Удалить товар?')) return
+    await deleteProduct(id).catch(() => {})
+    await reloadProducts()
   }
 
   async function submitOrder(e: React.FormEvent<HTMLFormElement>) {
@@ -152,12 +195,23 @@ export default function StorePage() {
 
       {/* Товары */}
       <div>
-        <h2 className="section-title mb-4">
-          {t('store.products')}
-          {products.length > 0 && (
-            <span className="ml-2 text-base font-semibold text-muted">({products.length})</span>
+        <div className="mb-4 flex items-center gap-3">
+          <h2 className="section-title flex-1">
+            {t('store.products')}
+            {products.length > 0 && (
+              <span className="ml-2 text-base font-semibold text-muted">({products.length})</span>
+            )}
+          </h2>
+          {isOwner && (
+            <button
+              className="btn-outline !h-9 text-sm"
+              onClick={() => setAddingProduct(true)}
+            >
+              <Icon name="plus" size={16} />
+              {t('product.add')}
+            </button>
           )}
-        </h2>
+        </div>
 
         {products.length === 0 ? (
           <div className="card p-10 text-center">
@@ -186,18 +240,105 @@ export default function StorePage() {
                   ) : (
                     <span className="text-xs text-muted">{t('store.outStock')}</span>
                   )}
-                  <button
-                    className="btn-primary !h-9 w-full text-sm"
-                    onClick={() => setOrdering(p)}
-                  >
-                    {t('store.order')}
-                  </button>
+                  {isOwner ? (
+                    <button
+                      className="icon-btn text-danger w-full !rounded-xl"
+                      onClick={() => p.id && handleDeleteProduct(p.id)}
+                      aria-label="Удалить товар"
+                    >
+                      <Icon name="trash" size={18} />
+                    </button>
+                  ) : (
+                    <button
+                      className="btn-primary !h-9 w-full text-sm"
+                      onClick={() => setOrdering(p)}
+                    >
+                      {t('store.order')}
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
       </div>
+
+      {/* Модалка добавления товара */}
+      {addingProduct && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm md:items-center"
+          onClick={() => { setAddingProduct(false); setProductFile(null); setProductPreview(null) }}
+        >
+          <form
+            onSubmit={submitProduct}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-md space-y-4 rounded-t-3xl bg-surface p-6 md:rounded-3xl"
+          >
+            <h3 className="font-bold text-[17px]">{t('product.add')}</h3>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">{t('product.nameLabel')} *</label>
+              <input name="pname" required className="input" placeholder="Тормозные колодки..." />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">{t('listing.priceLabel')} *</label>
+              <input name="pprice" type="number" required min={0} className="input" placeholder="2500" />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">{t('product.photoLabel')}</label>
+              <div className="flex items-center gap-4">
+                {productPreview ? (
+                  <img src={productPreview} alt="" className="h-16 w-16 shrink-0 rounded-xl object-cover border border-line" />
+                ) : (
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-xl border-2 border-dashed border-line bg-surface2">
+                    <Icon name="camera" size={20} strokeWidth={1.5} className="text-muted" />
+                  </div>
+                )}
+                <label className="btn-outline cursor-pointer text-sm">
+                  <Icon name="camera" size={16} />
+                  Выбрать
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="sr-only"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0]
+                      if (!f) return
+                      setProductFile(f)
+                      setProductPreview(URL.createObjectURL(f))
+                    }}
+                  />
+                </label>
+              </div>
+            </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input name="pinStock" type="checkbox" defaultChecked className="h-4 w-4 accent-accent" />
+              <span className="text-sm font-semibold">{t('product.inStockLabel')}</span>
+            </label>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">{t('listing.descLabel')}</label>
+              <textarea name="pdesc" rows={2} className="input" placeholder="Описание товара..." />
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="btn-ghost flex-1"
+                onClick={() => { setAddingProduct(false); setProductFile(null); setProductPreview(null) }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button disabled={productBusy} className="btn-primary flex-1">
+                {productBusy ? t('common.loading') : t('product.add')}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Модалка заказа */}
       {ordering && (

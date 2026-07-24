@@ -37,6 +37,20 @@ export default function Stores() {
         </div>
       </section>
 
+      {/* CTA: открыть свой магазин */}
+      <div className="card p-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <Icon name="store" size={22} className="shrink-0 text-accent" />
+          <div className="min-w-0">
+            <p className="font-bold leading-tight">{t('storeNew.openStore')}</p>
+            <p className="text-xs text-muted">{t('storeNew.hint')}</p>
+          </div>
+        </div>
+        <Link to="/store/new" className="btn-primary !h-10 shrink-0 text-sm">
+          {t('storeNew.create')}
+        </Link>
+      </div>
+
       {/* Список магазинов */}
       {loading ? (
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">

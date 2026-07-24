@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'r
 import { Link, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
-import { getChat, sendMessage, subscribeMessages, uploadChatMedia } from '../lib/db'
+import { getChat, markChatRead, sendMessage, subscribeMessages, uploadChatMedia } from '../lib/db'
 import { avatarHue, avatarInk } from '../lib/format'
 import type { ChatMessage, ChatMeta } from '../lib/types'
 import Icon from '../components/Icons'
@@ -34,6 +34,12 @@ export default function ChatRoom() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [msgs.length])
+
+  useEffect(() => {
+    if (user && id && msgs.length > 0) {
+      markChatRead(user.uid, id).catch(() => {})
+    }
+  }, [msgs.length, user?.uid, id])
 
   // подчистить запись при уходе со страницы
   useEffect(() => {

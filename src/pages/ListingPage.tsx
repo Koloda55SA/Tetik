@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
-import { ensureDmChat, getListing } from '../lib/db'
+import { ensureDmChat, fetchSimilar, getListing } from '../lib/db'
 import { CATEGORIES, formatPrice, waLink, type Listing } from '../lib/types'
 import { avatarHue, avatarInk, timeAgo } from '../lib/format'
 import { useTitle } from '../lib/useTitle'
 import Icon from '../components/Icons'
+import ListingCard from '../components/ListingCard'
 
 export default function ListingPage() {
   const { id } = useParams()
@@ -15,6 +16,7 @@ export default function ListingPage() {
   const nav = useNavigate()
   const [l, setL] = useState<Listing | null>(null)
   const [photo, setPhoto] = useState(0)
+  const [similar, setSimilar] = useState<Listing[] | null>(null)
 
   useTitle(l ? `${l.title} · ${formatPrice(l.price)} · ${l.city}` : undefined)
 
@@ -32,6 +34,10 @@ export default function ListingPage() {
   useEffect(() => {
     if (id) getListing(id).then(setL).catch(() => {})
   }, [id])
+
+  useEffect(() => {
+    if (l) fetchSimilar(l, 4).then(setSimilar).catch(() => setSimilar([]))
+  }, [l?.id])
 
   if (!l) {
     return (
@@ -212,6 +218,17 @@ export default function ListingPage() {
           </div>
         </div>
       </div>
+
+      {similar && similar.length > 0 && (
+        <section className="mt-8">
+          <h2 className="section-title mb-4">{t('listing.similar')}</h2>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+            {similar.map((s) => (
+              <ListingCard key={s.id} l={s} />
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   )
 }

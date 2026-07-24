@@ -272,3 +272,95 @@ export async function reportTarget(
 ) {
   await supabase.from('reports').insert({ targetType, targetId, reason: reason.slice(0, 500), byUid })
 }
+
+/* ---------------- Избранное ---------------- */
+
+export async function fetchFavoriteIds(uid: string): Promise<string[]> {
+  const { data } = await supabase.from('favorites').select('listingId').eq('userId', uid).limit(500)
+  return (data || []).map((r: { listingId: string }) => r.listingId)
+}
+
+export async function setFavorite(uid: string, listingId: string, on: boolean) {
+  if (on) {
+    await supabase.from('favorites').upsert({ userId: uid, listingId })
+  } else {
+    await supabase.from('favorites').delete().eq('userId', uid).eq('listingId', listingId)
+  }
+}
+
+export async function fetchFavoriteListings(uid: string): Promise<Listing[]> {
+  const ids = await fetchFavoriteIds(uid)
+  if (ids.length === 0) return []
+  const { data } = await supabase
+    .from('listings').select('*').in('id', ids).neq('status', 'blocked')
+    .order('bumpedAt', { ascending: false })
+  return (data as Listing[]) || []
+}
+
+/* ---------------- Похожие объявления ---------------- */
+
+export async function fetchSimilar(l: Listing, max = 4): Promise<Listing[]> {
+  const { data } = await supabase
+    .from('listings').select('*')
+    .eq('status', 'active').eq('category', l.category).neq('id', l.id)
+    .order('bumpedAt', { ascending: false }).limit(max)
+  return (data as Listing[]) || []
+}
+
+/* ---------------- Прочитанность чатов ---------------- */
+
+export async function fetchChatReads(uid: string): Promise<Record<string, string>> {
+  const { data } = await supabase.from('chat_reads').select('chatId,lastReadAt').eq('userId', uid).limit(500)
+  return Object.fromEntries((data || []).map((r: { chatId: string; lastReadAt: string }) => [r.chatId, r.lastReadAt]))
+}
+
+export async function markChatRead(uid: string, chatId: string) {
+  await supabase.from('chat_reads').upsert({ userId: uid, chatId, lastReadAt: new Date().toISOString() })
+}
+
+/* ---------------- Создание магазина и товары ---------------- */
+
+const TRANSLIT: Record<string, string> = {
+  а: 'a', б: 'b', в: 'v', г: 'g', д: 'd', е: 'e', ё: 'e', ж: 'zh', з: 'z', и: 'i', й: 'i',
+  к: 'k', л: 'l', м: 'm', н: 'n', о: 'o', п: 'p', р: 'r', с: 's', т: 't', у: 'u', ф: 'f',
+  х: 'h', ц: 'c', ч: 'ch', ш: 'sh', щ: 'sch', ъ: '', ы: 'y', ь: '', э: 'e', ю: 'yu', я: 'ya',
+  ң: 'n', ү: 'u', ө: 'o',
+}
+
+export function slugify(name: string): string {
+  const s = name.toLowerCase().split('').map((c) => TRANSLIT[c] ?? c).join('')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)
+  return s || 'store'
+}
+
+export async function createStore(input: {
+  name: string; desc: string; city: string; address?: string; phone: string; whatsapp?: string;
+  ownerUid: string; logo?: string; cover?: string;
+}): Promise<string> {
+  let slug = slugify(input.name)
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const trySlug = attempt === 0 ? slug : `${slug}-${Math.random().toString(36).slice(2, 6)}`
+    const { data, error } = await supabase
+      .from('stores').insert({ ...input, slug: trySlug, verified: false }).select('slug').single()
+    if (!error) return data.slug as string
+    if (!String(error.message).includes('duplicate')) throw error
+  }
+  throw new Error('slug conflict')
+}
+
+export async function myStore(uid: string): Promise<Store | null> {
+  const { data } = await supabase.from('stores').select('*').eq('ownerUid', uid).limit(1).maybeSingle()
+  return (data as Store) || null
+}
+
+export async function addProduct(p: {
+  storeId: string; name: string; price: number; photos: string[]; inStock: boolean; desc?: string;
+}): Promise<void> {
+  const { error } = await supabase.from('products').insert(p)
+  if (error) throw error
+}
+
+export async function deleteProduct(id: string) {
+  const { error } = await supabase.from('products').delete().eq('id', id)
+  if (error) throw error
+}

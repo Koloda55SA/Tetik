@@ -220,3 +220,8 @@ grant execute on function public.pin_message(text, uuid) to authenticated;
 
 alter function public.check_message_insert() set search_path = public;
 alter function public.guard_message() set search_path = public;
+
+-- Realtime должен отдавать полную строку: иначе клиент не увидит,
+-- какое именно сообщение отредактировали или удалили
+alter table public.messages replica identity full;
+alter table public.chats replica identity full;

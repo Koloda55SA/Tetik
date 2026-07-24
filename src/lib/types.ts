@@ -98,7 +98,8 @@ export interface ChatMessage {
   senderId: string
   senderName: string
   text: string
-  imageUrl?: string
+  imageUrl?: string | null
+  audioUrl?: string | null
   createdAt: Ts
 }
 

@@ -41,7 +41,7 @@ export async function getListing(id: string): Promise<Listing | null> {
  * Телефонное фото 5МБ превращается в ~300КБ — бережём бесплатный 1ГБ Storage.
  * Если формат не читается (например HEIC в некоторых браузерах) — грузим оригинал.
  */
-async function compressImage(file: File, maxSide = 1600, quality = 0.82): Promise<Blob> {
+async function compressImage(file: Blob, maxSide = 1600, quality = 0.82): Promise<Blob> {
   if (!file.type.startsWith('image/')) return file
   try {
     const bitmap = await createImageBitmap(file)
@@ -196,18 +196,45 @@ export function subscribeMessages(chatId: string, cb: (msgs: ChatMessage[]) => v
   }
 }
 
-export async function sendMessage(chatId: string, sender: { uid: string; name: string }, text: string) {
+/** Загрузка медиа чата (фото сжимается, голос как есть) → публичный URL */
+export async function uploadChatMedia(uid: string, blob: Blob, kind: 'image' | 'audio'): Promise<string> {
+  let payload: Blob = blob
+  let mime = (blob.type || 'application/octet-stream').split(';')[0]
+  let ext = 'bin'
+  if (kind === 'image') {
+    payload = await compressImage(blob)
+    if (payload !== blob) mime = 'image/jpeg'
+    ext = mime === 'image/jpeg' ? 'jpg' : (mime.split('/')[1] || 'jpg')
+  } else {
+    ext = mime.includes('webm') ? 'webm' : mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm'
+    if (mime.includes('mp4')) mime = 'audio/mp4'
+  }
+  const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const { error } = await supabase.storage.from('chat').upload(path, payload, { contentType: mime })
+  if (error) throw error
+  return supabase.storage.from('chat').getPublicUrl(path).data.publicUrl
+}
+
+export async function sendMessage(
+  chatId: string,
+  sender: { uid: string; name: string },
+  text: string,
+  media?: { imageUrl?: string; audioUrl?: string },
+) {
   const clean = text.trim().slice(0, 2000)
-  if (!clean) return
+  if (!clean && !media?.imageUrl && !media?.audioUrl) return
   const { error } = await supabase.from('messages').insert({
     chatId,
     senderId: sender.uid,
     senderName: sender.name,
     text: clean,
+    imageUrl: media?.imageUrl ?? null,
+    audioUrl: media?.audioUrl ?? null,
   })
   if (error) throw error
+  const preview = clean || (media?.imageUrl ? '📷 Фото' : '🎤 Голосовое')
   await supabase.from('chats')
-    .update({ lastMsg: clean.slice(0, 80), lastMsgAt: new Date().toISOString() })
+    .update({ lastMsg: preview.slice(0, 80), lastMsgAt: new Date().toISOString() })
     .eq('id', chatId)
 }
 

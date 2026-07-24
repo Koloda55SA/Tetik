@@ -1,0 +1,44 @@
+rules_version = '2';
+
+// Tetik — правила Firebase Storage (фото)
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    // Фото объявлений: listings/{uid}/*
+    match /listings/{uid}/{file} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && isImage()
+        && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Витрины магазинов: stores/{uid}/*
+    match /stores/{uid}/{file} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && isImage()
+        && request.resource.size < 5 * 1024 * 1024;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Аватары: avatars/{uid}/*
+    match /avatars/{uid}/{file} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == uid
+        && isImage()
+        && request.resource.size < 2 * 1024 * 1024;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 64" fill="none" role="img" aria-label="Tetik">
+  <!--
+    TETIK — Horizontal wordmark for LIGHT backgrounds
+    Palette: #1A1917 (asphalt) + #E85C0D (signal orange)
+
+    Mechanical concept:
+    - First T crossbar is extended with rounded "socket" tips — torque wrench silhouette.
+      The crossbar is rendered in accent orange; stem in asphalt.
+    - E bars are 3-level horizontal rails (socket profile).
+    - I has top/bottom caps (cap-head bolt profile).
+    - K has clean diagonal cuts.
+    - Letters are geometric, constructed from rects and polygons.
+    - Letterform width: T=68, gap=12, E=52, gap=12, T=52, gap=12, I=28, gap=12, K=52
+    - Total: 68+12+52+12+52+12+28+12+52 = 300, padded to 340
+  -->
+
+  <!-- ═══ T (first) — Wrench crossbar ═══ -->
+  <!-- Crossbar: orange, rounded ends like a socket-wrench head -->
+  <rect x="20" y="6" width="68" height="14" rx="7" fill="#E85C0D"/>
+  <!-- Stem -->
+  <rect x="47" y="6" width="14" height="52" rx="2" fill="#1A1917"/>
+  <!-- Re-paint stem top over orange so they merge -->
+  <rect x="47" y="6" width="14" height="14" fill="#E85C0D"/>
+
+  <!-- ═══ E (first) ═══ -->
+  <!-- Spine -->
+  <rect x="100" y="6" width="12" height="52" rx="2" fill="#1A1917"/>
+  <!-- Top bar -->
+  <rect x="100" y="6" width="48" height="12" rx="2" fill="#1A1917"/>
+  <!-- Mid bar (shorter = E profile) -->
+  <rect x="100" y="27" width="36" height="10" rx="2" fill="#1A1917"/>
+  <!-- Bottom bar -->
+  <rect x="100" y="46" width="48" height="12" rx="2" fill="#1A1917"/>
+
+  <!-- ═══ T (second) ═══ -->
+  <!-- Crossbar: asphalt -->
+  <rect x="160" y="6" width="52" height="12" rx="2" fill="#1A1917"/>
+  <!-- Stem -->
+  <rect x="180" y="6" width="12" height="52" rx="2" fill="#1A1917"/>
+
+  <!-- ═══ I ═══ -->
+  <!-- Top cap -->
+  <rect x="224" y="6" width="30" height="12" rx="2" fill="#1A1917"/>
+  <!-- Stem -->
+  <rect x="234" y="6" width="10" height="52" rx="2" fill="#1A1917"/>
+  <!-- Bottom cap -->
+  <rect x="224" y="46" width="30" height="12" rx="2" fill="#1A1917"/>
+
+  <!-- ═══ K ═══ -->
+  <!-- Spine -->
+  <rect x="266" y="6" width="12" height="52" rx="2" fill="#1A1917"/>
+  <!-- Upper arm: diagonal from mid-spine to top-right -->
+  <polygon points="276,32 278,30 320,6 320,20 284,40" fill="#1A1917"/>
+  <!-- Lower arm: diagonal from mid-spine to bottom-right -->
+  <polygon points="278,34 320,58 320,58 316,58 278,38" fill="#1A1917"/>
+  <polygon points="278,34 284,40 320,58 316,58" fill="#1A1917"/>
+</svg>

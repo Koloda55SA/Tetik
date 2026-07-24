@@ -1,0 +1,150 @@
+rules_version = '2';
+
+// Tetik — правила безопасности Firestore
+// Деплой: firebase deploy --only firestore:rules (или через консоль)
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function authed() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return authed() && request.auth.uid == uid;
+    }
+
+    /* ---------- Пользователи ---------- */
+    match /users/{uid} {
+      allow read: if true;
+      allow create: if isOwner(uid)
+        && request.resource.data.role == 'user'
+        && request.resource.data.uid == uid;
+      allow update: if isOwner(uid)
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.email == resource.data.email;
+      allow delete: if false;
+    }
+
+    /* ---------- Объявления (Базар) ---------- */
+    match /listings/{id} {
+      allow read: if true;
+      allow create: if authed()
+        && request.resource.data.sellerId == request.auth.uid
+        && request.resource.data.status == 'active'
+        && request.resource.data.title is string
+        && request.resource.data.title.size() >= 5
+        && request.resource.data.title.size() <= 120
+        && request.resource.data.desc.size() <= 2000
+        && request.resource.data.price is number
+        && request.resource.data.price >= 0
+        && request.resource.data.price < 100000000
+        && request.resource.data.photos is list
+        && request.resource.data.photos.size() <= 8
+        && request.resource.data.currency == 'KGS';
+      // владелец меняет своё; заблокированное объявление разблокировать нельзя
+      allow update: if authed()
+        && resource.data.sellerId == request.auth.uid
+        && resource.data.status != 'blocked'
+        && request.resource.data.sellerId == resource.data.sellerId
+        && request.resource.data.status in ['active', 'sold', 'archived'];
+      allow delete: if authed() && resource.data.sellerId == request.auth.uid;
+    }
+
+    /* ---------- Чаты ---------- */
+    match /chats/{chatId} {
+      function chatData() {
+        return get(/databases/$(database)/documents/chats/$(chatId)).data;
+      }
+      function isMember() {
+        return authed() && request.auth.uid in resource.data.members;
+      }
+
+      // группы видны всем, личка — только участникам
+      allow read: if resource.data.type == 'group' || isMember();
+      // dm создаёт участник пары; группы создаёт админ-движок (Worker), клиенту нельзя
+      allow create: if authed()
+        && request.resource.data.type == 'dm'
+        && request.resource.data.members.size() == 2
+        && request.auth.uid in request.resource.data.members;
+      // участники обновляют lastMsg; вступление в группу — добавление себя
+      allow update: if authed() && (
+        (resource.data.type == 'dm' && request.auth.uid in resource.data.members)
+        || (resource.data.type == 'group')
+      ) && request.resource.data.type == resource.data.type;
+      allow delete: if false;
+
+      match /messages/{mid} {
+        allow read: if chatData().type == 'group'
+          || (authed() && request.auth.uid in chatData().members);
+        allow create: if authed()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && (chatData().type == 'group' || request.auth.uid in chatData().members);
+        allow update, delete: if false;
+      }
+    }
+
+    /* ---------- Официальные магазины ---------- */
+    match /stores/{id} {
+      allow read: if true;
+      // заявка на магазин: создаётся владельцем, verified всегда false
+      allow create: if authed()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.verified == false;
+      // владелец правит витрину, но не может сам себя "верифицировать"
+      allow update: if authed()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.verified == resource.data.verified;
+      allow delete: if false;
+
+      match /products/{pid} {
+        allow read: if true;
+        allow write: if authed()
+          && get(/databases/$(database)/documents/stores/$(id)).data.ownerUid == request.auth.uid;
+      }
+    }
+
+    /* ---------- Заказы ---------- */
+    match /orders/{id} {
+      function storeOwner() {
+        return get(/databases/$(database)/documents/stores/$(resource.data.storeId)).data.ownerUid;
+      }
+      allow create: if authed()
+        && request.resource.data.buyerUid == request.auth.uid
+        && request.resource.data.status == 'new';
+      allow read: if authed()
+        && (resource.data.buyerUid == request.auth.uid || storeOwner() == request.auth.uid);
+      // статус меняет магазин; покупатель может отменить свой новый заказ
+      allow update: if authed()
+        && request.resource.data.buyerUid == resource.data.buyerUid
+        && request.resource.data.storeId == resource.data.storeId
+        && (
+          storeOwner() == request.auth.uid
+          || (resource.data.buyerUid == request.auth.uid
+              && resource.data.status == 'new'
+              && request.resource.data.status == 'cancelled')
+        );
+      allow delete: if false;
+    }
+
+    /* ---------- Жалобы ---------- */
+    match /reports/{id} {
+      allow create: if authed()
+        && request.resource.data.byUid == request.auth.uid
+        && request.resource.data.reason.size() <= 500;
+      allow read, update, delete: if false;
+    }
+
+    /* ---------- Служебные (только Worker через Admin) ---------- */
+    match /otps/{id} {
+      allow read, write: if false;
+    }
+    match /system/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

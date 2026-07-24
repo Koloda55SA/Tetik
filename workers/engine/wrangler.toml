@@ -1,0 +1,18 @@
+name = "tetik-engine"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# Автомодерация + автоархив каждые 6 часов
+[triggers]
+crons = ["17 */6 * * *"]
+
+[vars]
+# Заполняются при деплое (скрипт deploy сам подставит из окружения)
+FIREBASE_PROJECT_ID = "CHANGE_ME"
+ALLOWED_ORIGINS = "http://localhost:5173"
+SENDER_EMAIL = "no-reply@tetik.kg"
+SENDER_NAME = "Tetik"
+
+# Секреты (задаются через `wrangler secret put`, НЕ коммитятся):
+#   FIREBASE_SERVICE_ACCOUNT — полный JSON сервисного аккаунта Firebase
+#   BREVO_API_KEY            — API-ключ Brevo для отправки писем с кодом

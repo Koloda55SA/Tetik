@@ -1,0 +1,11 @@
+node_modules
+dist
+.env
+.env.local
+.wrangler
+*.log
+.DS_Store
+
+# Бинарные картинки генерируются из assets-b64/ (npm postinstall → scripts/unpack-assets.mjs)
+public/**/*.jpg
+public/**/*.png

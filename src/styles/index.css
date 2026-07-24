@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   Tetik design tokens — базовая палитра (индустриальный графит
+   + сигнальный оранжевый). Значения синхронизируются с
+   tetik-assets/brand/tokens.css от бренд-агента.
+   ============================================================ */
+:root {
+  --c-bg: #f5f5f4;
+  --c-surface: #ffffff;
+  --c-surface2: #ececea;
+  --c-border: #d4d2cf;
+  --c-text: #1a1917;
+  --c-text-muted: #6b6960;
+  --c-accent: #e85c0d;
+  --c-accent-hover: #c44b08;
+  --c-accent-fg: #ffffff;
+  --c-success: #2a7d4f;
+  --c-danger: #c0392b;
+  --c-warning: #d97706;
+
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 24px;
+
+  --font-display: 'Unbounded', system-ui, sans-serif;
+  --font-ui: 'Onest', system-ui, sans-serif;
+}
+
+[data-theme='dark'] {
+  --c-bg: #111110;
+  --c-surface: #1c1c1a;
+  --c-surface2: #2a2a27;
+  --c-border: #3a3a36;
+  --c-text: #f0efe9;
+  --c-text-muted: #9a9890;
+  --c-accent: #ff6b1a;
+  --c-accent-hover: #ff8040;
+  --c-accent-fg: #111110;
+  --c-success: #3db872;
+  --c-danger: #e05a4a;
+  --c-warning: #f59e0b;
+}
+
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  @apply bg-bg text-ink font-ui antialiased;
+}
+
+/* Utility-компоненты UI-кита */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-btn px-4 py-2.5 font-semibold transition-colors select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-accent-fg hover:bg-accent-hover;
+  }
+  .btn-ghost {
+    @apply btn bg-surface2 text-ink hover:bg-line;
+  }
+  .card {
+    @apply bg-surface rounded-card border border-line overflow-hidden;
+  }
+  .input {
+    @apply w-full rounded-btn border border-line bg-surface px-3.5 py-2.5 text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent/60 focus:border-accent;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full bg-surface2 px-3 py-1 text-sm text-ink whitespace-nowrap;
+  }
+  .chip-active {
+    @apply bg-accent text-accent-fg;
+  }
+}

@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none" role="img" aria-label="Tetik logo mark">
+  <!--
+    TETIK Logo Mark — 512×512 square (favicon / PWA icon)
+    Palette: #1A1917 (asphalt background) + #E85C0D (signal orange) + #F0EFE9 (steel white)
+
+    Mechanical concept: BOLT-HEAD LETTER T
+    ─────────────────────────────────────
+    The mark is a hexagonal bolt-head silhouette (like a cap-head bolt viewed from above),
+    with a "T" cut INTO it — negative space forming the letter T.
+    The crossbar of the T echoes the wrench-grip from the wordmark.
+    Orange fill for the bolt, asphalt background, white T negative space.
+
+    This creates instant mechanical recognition:
+    - Hexagon = industrial fastener, bolts, wrenches (automotive DNA)
+    - T = first letter of TETIK and "тетик" (detail/part in Kyrgyz)
+    - The cut-through negative space = transparency, honest construction
+    - Reads perfectly at 16×16 favicon (hexagon + center stem)
+
+    Construction:
+    - Outer square: 512×512 asphalt background
+    - Inner rounded square inset: 48px padding, radius 80
+    - Hexagon: 6-sided, centered, radius ~195px, flat-top orientation
+    - T cutout: crossbar 100px tall × 260px wide centered at y=160,
+                stem 100px wide × 260px tall centered at x=256
+  -->
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="#1A1917"/>
+
+  <!-- ── Hexagon bolt-head (orange fill) ── -->
+  <!--
+    Flat-top hexagon centered at (256, 256), circumradius R=195
+    Flat-top means vertices at angles: 0°, 60°, 120°, 180°, 240°, 300°
+    But flat-top = vertex at top → angles start at 30°
+    Vertices (R=195, center 256,256):
+      0°:  256+195*cos(90°),  256-195*sin(90°)  = 256, 61
+      60°: 256+195*cos(30°),  256-195*sin(30°)  = 256+169, 256-97.5 = 425, 158
+      120°:256+195*cos(-30°), 256-195*sin(-30°) = 425, 354
+      180°:256+195*cos(-90°), 256-195*sin(-90°) = 256, 451
+      240°:256+195*cos(210°-90°)... let me use flat-top:
+    Flat-top hexagon (vertex at right, flat edges top/bottom):
+    Actually "pointy-top" = vertex at top.
+    Pointy-top vertices (R=195):
+      angle 90°:  256, 61
+      angle 30°:  256+195*0.866, 256-195*0.5  = 425, 158
+      angle -30°: 425, 354
+      angle -90°: 256, 451
+      angle -150°: 87, 354
+      angle 150°:  87, 158
+  -->
+  <polygon
+    points="256,61 425,158 425,354 256,451 87,354 87,158"
+    fill="#E85C0D"
+  />
+
+  <!-- ── T letterform cut-out (asphalt, negative space) ── -->
+  <!-- Crossbar: wide horizontal bar across the upper bolt -->
+  <rect x="128" y="148" width="256" height="96" rx="12" fill="#1A1917"/>
+  <!-- Stem: tall vertical bar descending center -->
+  <rect x="206" y="148" width="100" height="260" rx="12" fill="#1A1917"/>
+
+  <!-- ── Accent detail: small orange bolt dots at hex corners (industrial rivets) ── -->
+  <!-- Top -->
+  <circle cx="256" cy="80" r="10" fill="#F0EFE9" opacity="0.4"/>
+  <!-- Bottom -->
+  <circle cx="256" cy="432" r="10" fill="#F0EFE9" opacity="0.4"/>
+</svg>

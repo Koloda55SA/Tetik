@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
       console.error("brevo", res.status, await res.text());
       return json({ ok: true, fallback: true });
     }
-    return json({ ok: true, channel: "brevo" });
+    return json({ ok: true, channel: "brevo", len: String(code).length });
   } catch (e) {
     console.error(e);
     return json({ error: "internal" });

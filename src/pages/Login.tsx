@@ -98,10 +98,10 @@ export default function Login() {
               required
               autoFocus
               inputMode="numeric"
-              pattern="[0-9]{6}"
-              maxLength={6}
-              className="input h-14 text-center text-[26px] font-extrabold tracking-[0.45em]"
-              placeholder="······"
+              pattern="[0-9]{6,8}"
+              maxLength={8}
+              className="input h-14 text-center text-[26px] font-extrabold tracking-[0.3em]"
+              placeholder="········"
             />
             {err && <p className="text-sm font-semibold text-danger">{err}</p>}
             <button disabled={busy} className="btn-primary h-12 w-full">

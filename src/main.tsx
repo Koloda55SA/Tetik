@@ -2,7 +2,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 
 /** Версия сборки (меняет хэш бандла — сброс кэша ассетов) */
-console.info('Tetik build 2026-07-24.2')
+console.info('Tetik build 2026-07-25.1')
+
+// прокруткой управляем сами (иначе браузер возвращает случайное смещение)
+if ('scrollRestoration' in window.history) window.history.scrollRestoration = 'manual'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './lib/auth'

@@ -62,12 +62,54 @@
 
 html {
   -webkit-tap-highlight-color: transparent;
-  scroll-behavior: smooth;
+  /* iOS: не увеличивать текст при повороте экрана */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body {
   @apply bg-bg text-ink font-ui antialiased;
   font-feature-settings: 'ss01';
+  /* прокрутка страницы не «протягивается» дальше краёв (резинка + перескоки) */
+  overscroll-behavior-y: none;
+}
+
+/* ГЛАВНОЕ ПРОТИВ САМОПРОИЗВОЛЬНОГО ЗУМА НА iOS:
+   Safari приближает страницу, если у поля шрифт меньше 16px.
+   Держим 16px на телефонах, а на больших экранах возвращаем компактный вид. */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+@media (min-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: inherit;
+  }
+}
+
+/* Плавную прокрутку включаем только на больших экранах:
+   на телефоне из-за неё экран «уползает» при появлении клавиатуры */
+@media (min-width: 768px) {
+  html { scroll-behavior: smooth; }
+}
+
+/* Двойной тап по кнопкам/ссылкам больше не зумит */
+button,
+a,
+label,
+[role='button'],
+.chip,
+.sheet-item {
+  touch-action: manipulation;
+}
+
+/* Когда открыта нижняя панель — фон под ней не скроллится */
+body.sheet-open {
+  overflow: hidden;
+  touch-action: none;
 }
 
 ::selection {
@@ -149,5 +191,60 @@ body {
 
   .section-title {
     @apply text-xl font-extrabold tracking-tight md:text-2xl;
+  }
+}
+
+/* ==== Нижние панели действий (мобильный UX как в Telegram) ==== */
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@layer components {
+  /* Затемнение под панелью */
+  .sheet-backdrop {
+    @apply fixed inset-0 z-[60];
+    background: rgba(0, 0, 0, 0.45);
+    animation: fade-in 0.18s ease-out;
+  }
+  /* Сама панель: прижата к низу, всегда в зоне пальца */
+  .sheet {
+    @apply fixed inset-x-0 bottom-0 z-[61] mx-auto w-full max-w-lg overflow-hidden rounded-t-3xl border-t border-line bg-surface;
+    padding-bottom: max(env(safe-area-inset-bottom), 0.5rem);
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.28);
+    animation: sheet-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  /* Ручка сверху панели */
+  .sheet-grip {
+    @apply mx-auto mt-2.5 mb-1 h-1 w-10 shrink-0 rounded-full;
+    background: var(--c-line);
+  }
+  /* Пункт панели — крупная зона нажатия под палец */
+  .sheet-item {
+    @apply flex w-full items-center gap-3.5 px-5 py-4 text-left text-[15px] font-semibold text-ink transition-colors active:bg-surface2;
+  }
+  .sheet-item-danger {
+    @apply sheet-item text-danger;
+  }
+}
+
+/* ==== Экран чата: высота под реальную видимую область ====
+   На телефоне клавиатура перекрывает часть экрана. --vvh задаёт
+   ChatRoom через visualViewport, поэтому поле ввода всегда видно. */
+.chat-shell {
+  height: calc(100dvh - 11rem);
+}
+@supports (height: 1px) {
+  .chat-shell {
+    height: calc(var(--vvh, 100dvh) - 11rem);
+  }
+}
+@media (min-width: 768px) {
+  .chat-shell {
+    height: calc(100dvh - 14rem);
   }
 }

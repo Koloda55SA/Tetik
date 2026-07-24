@@ -6,6 +6,7 @@ import { fetchChatReads, subscribeMyDms } from '../lib/db'
 import { setLang } from '../lib/i18n'
 import type { ChatMeta } from '../lib/types'
 import Icon from './Icons'
+import ScrollManager from './ScrollManager'
 
 export default function Layout() {
   const { t, i18n } = useTranslation()
@@ -70,6 +71,7 @@ export default function Layout() {
 
   return (
     <div className="min-h-dvh flex flex-col">
+      <ScrollManager />
       {/* ======= Шапка ======= */}
       <header className="sticky top-0 z-40 border-b border-line bg-surface">
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">

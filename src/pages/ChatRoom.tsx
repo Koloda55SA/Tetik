@@ -41,12 +41,14 @@ export default function ChatRoom() {
   const [recording, setRecording] = useState(false)
   const [recSec, setRecSec] = useState(0)
   const [joining, setJoining] = useState(false)
-  const [menuFor, setMenuFor] = useState<string | null>(null)
+  const [sheet, setSheet] = useState<ChatMessage | null>(null)
+  const [confirmDel, setConfirmDel] = useState(false)
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
   const [editing, setEditing] = useState<ChatMessage | null>(null)
   const [settings, setSettings] = useState(false)
   const [cooldown, setCooldown] = useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -64,8 +66,15 @@ export default function ChatRoom() {
     }
   }, [id])
 
+  // Прокручиваем ТОЛЬКО ленту сообщений (scrollIntoView дёргал всю страницу),
+  // и только если человек уже был внизу — иначе не мешаем читать историю
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    const box = listRef.current
+    if (!box) return
+    const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 160
+    if (nearBottom || msgs.length <= 1) {
+      box.scrollTo({ top: box.scrollHeight, behavior: msgs.length <= 1 ? 'auto' : 'smooth' })
+    }
   }, [msgs.length])
 
   useEffect(() => {
@@ -112,6 +121,47 @@ export default function ChatRoom() {
     const iv = setInterval(tick, 1000)
     return () => clearInterval(iv)
   }, [msgs, slow, user?.uid, isGroup, isAdmin])
+
+  // Клавиатура на телефоне меняет видимую высоту — подстраиваемся,
+  // иначе поле ввода уезжает под клавиатуру и лента прыгает
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const apply = () => {
+      document.documentElement.style.setProperty('--vvh', `${vv.height}px`)
+      // держим ленту у низа, когда клавиатура открылась
+      const box = listRef.current
+      if (box) box.scrollTop = box.scrollHeight
+    }
+    apply()
+    vv.addEventListener('resize', apply)
+    vv.addEventListener('scroll', apply)
+    return () => {
+      vv.removeEventListener('resize', apply)
+      vv.removeEventListener('scroll', apply)
+      document.documentElement.style.removeProperty('--vvh')
+    }
+  }, [])
+
+  // Пока открыта любая панель — фон под ней не прокручивается
+  useEffect(() => {
+    const open = !!sheet || settings
+    document.body.classList.toggle('sheet-open', open)
+    return () => document.body.classList.remove('sheet-open')
+  }, [sheet, settings])
+
+  // Кнопка «назад» на телефоне закрывает панель, а не уводит со страницы
+  useEffect(() => {
+    setConfirmDel(false)
+    if (!sheet) return
+    window.history.pushState({ sheet: true }, '')
+    const onPop = () => setSheet(null)
+    window.addEventListener('popstate', onPop)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      if (window.history.state?.sheet) window.history.back()
+    }
+  }, [sheet?.id])
 
   async function onJoinHere() {
     if (!user || !id || joining) return
@@ -256,14 +306,14 @@ export default function ChatRoom() {
 
   /* ---------- Действия над сообщением ---------- */
   function startReply(m: ChatMessage) {
-    setMenuFor(null)
+    setSheet(null)
     setEditing(null)
     setReplyTo(m)
     setTimeout(() => inputRef.current?.focus(), 50)
   }
 
   function startEdit(m: ChatMessage) {
-    setMenuFor(null)
+    setSheet(null)
     setReplyTo(null)
     setEditing(m)
     setText(m.text)
@@ -271,13 +321,13 @@ export default function ChatRoom() {
   }
 
   async function onDelete(m: ChatMessage) {
-    setMenuFor(null)
-    if (!m.id || !window.confirm(t('chat.deleteMsgConfirm'))) return
+    if (!m.id) return
+    setSheet(null)
     await deleteMessage(m.id).catch(() => alert(t('common.error')))
   }
 
   async function onPin(m: ChatMessage) {
-    setMenuFor(null)
+    setSheet(null)
     if (!m.id || !id) return
     await pinMessage(id, m.id).catch(() => alert(t('common.error')))
   }
@@ -293,13 +343,22 @@ export default function ChatRoom() {
   }
 
   function copyText(m: ChatMessage) {
-    setMenuFor(null)
+    setSheet(null)
     navigator.clipboard?.writeText(m.text).catch(() => {})
   }
 
   function scrollToMsg(msgId?: string | null) {
     if (!msgId) return
-    document.getElementById(`m-${msgId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const box = listRef.current
+    const el = document.getElementById(`m-${msgId}`)
+    if (!box || !el) return
+    // считаем позицию внутри ленты, чтобы не тянуть за собой всю страницу
+    const top = el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2
+    box.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
+    el.animate(
+      [{ opacity: 1 }, { opacity: 0.45 }, { opacity: 1 }],
+      { duration: 700, easing: 'ease-in-out' },
+    )
   }
 
   function title(): string {
@@ -315,7 +374,7 @@ export default function ChatRoom() {
   const fmtSec = (s: number) => `0:${String(s).padStart(2, '0')}`
 
   return (
-    <div className="max-w-2xl mx-auto flex h-[calc(100dvh-11rem)] flex-col md:h-[calc(100dvh-14rem)]">
+    <div className="chat-shell max-w-2xl mx-auto flex flex-col">
       {/* Шапка */}
       <div className="card mb-2 p-3">
         <div className="flex items-center gap-3">
@@ -339,35 +398,15 @@ export default function ChatRoom() {
           </div>
           {isAdmin && isGroup && (
             <button
-              onClick={() => setSettings((v) => !v)}
+              onClick={() => setSettings(true)}
               className="icon-btn shrink-0"
               title={t('chat.slowmode')}
             >
-              <Icon name={settings ? 'x' : 'sliders'} size={19} />
+              <Icon name="sliders" size={19} />
             </button>
           )}
         </div>
 
-        {/* Настройки группы — только админ */}
-        {isAdmin && isGroup && settings && (
-          <div className="mt-3 border-t border-line pt-3">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted">
-              {t('chat.slowmode')}
-            </p>
-            <p className="mt-1 text-xs text-muted">{t('chat.slowmodeHint')}</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {SLOWMODE_OPTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => onSlowmode(s)}
-                  className={`chip !h-8 text-xs ${slow === s ? 'chip-active' : ''}`}
-                >
-                  {slowmodeLabel(s)}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Закреплённое сообщение */}
@@ -402,13 +441,16 @@ export default function ChatRoom() {
       )}
 
       {/* Сообщения */}
-      <div className="flex-1 space-y-2 overflow-y-auto px-1 py-2">
+      <div
+        ref={listRef}
+        className="flex-1 space-y-2 overflow-y-auto overscroll-contain px-1 py-2"
+        style={{ WebkitOverflowScrolling: 'touch', overflowAnchor: 'none' }}
+      >
         {msgs.length === 0 && <p className="py-8 text-center text-sm text-muted">{t('chat.empty')}</p>}
         {msgs.map((m) => {
           const mine = m.senderId === user?.uid
           const senderColor = avatarInk(m.senderName)
           const mediaOnly = (m.imageUrl || m.audioUrl) && !m.text
-          const open = menuFor === m.id
           const canDelete = mine || isAdmin
           const isPinned = chat?.pinnedMsgId === m.id
 
@@ -429,7 +471,13 @@ export default function ChatRoom() {
             <div key={m.id} id={`m-${m.id}`} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
               <div className="relative max-w-[85%]">
                 <div
-                  onClick={() => canWrite && setMenuFor(open ? null : m.id || null)}
+                  onClick={() => canWrite && setSheet(m)}
+                  onContextMenu={(e) => {
+                    if (canWrite) {
+                      e.preventDefault()
+                      setSheet(m)
+                    }
+                  }}
                   className={`cursor-pointer ${mediaOnly ? 'p-1.5' : 'px-4 py-2.5'} ${
                     mine ? 'rounded-2xl rounded-br-md bg-ink text-bg' : 'card rounded-2xl rounded-bl-md'
                   } ${isPinned ? 'ring-2 ring-accent' : ''}`}
@@ -512,52 +560,6 @@ export default function ChatRoom() {
                   </p>
                 </div>
 
-                {/* Меню действий */}
-                {open && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setMenuFor(null)} />
-                    <div
-                      className={`absolute z-50 mt-1 min-w-[170px] overflow-hidden rounded-xl border border-line bg-surface shadow-lift ${
-                        mine ? 'right-0' : 'left-0'
-                      }`}
-                    >
-                      <button onClick={() => startReply(m)} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-surface2">
-                        <Icon name="arrowRight" size={15} />
-                        {t('chat.reply')}
-                      </button>
-                      {m.text && (
-                        <button onClick={() => copyText(m)} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-surface2">
-                          <Icon name="tag" size={15} />
-                          {t('chat.copy')}
-                        </button>
-                      )}
-                      {mine && m.text && (
-                        <button onClick={() => startEdit(m)} className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-surface2">
-                          <Icon name="name" size={15} />
-                          {t('chat.edit')}
-                        </button>
-                      )}
-                      {isAdmin && isGroup && (
-                        <button
-                          onClick={() => (isPinned ? (setMenuFor(null), onUnpin()) : onPin(m))}
-                          className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-surface2"
-                        >
-                          <Icon name="tag" size={15} />
-                          {isPinned ? t('chat.unpin') : t('chat.pin')}
-                        </button>
-                      )}
-                      {canDelete && (
-                        <button
-                          onClick={() => onDelete(m)}
-                          className="flex w-full items-center gap-2.5 border-t border-line px-3.5 py-2.5 text-left text-sm text-danger hover:bg-surface2"
-                        >
-                          <Icon name="trash" size={15} />
-                          {t('common.delete')}
-                        </button>
-                      )}
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           )
@@ -688,6 +690,114 @@ export default function ChatRoom() {
             </button>
           )}
         </form>
+      )}
+
+      {/* ======= Панель действий над сообщением (снизу, под палец) ======= */}
+      {sheet && (
+        <>
+          <div className="sheet-backdrop" onClick={() => setSheet(null)} />
+          <div className="sheet" role="dialog" aria-modal="true">
+            <div className="sheet-grip" />
+
+            {/* Что за сообщение */}
+            <div className="mx-5 mb-1 mt-2 flex items-center gap-2.5 border-b border-line pb-3">
+              {sheet.imageUrl && (
+                <img src={sheet.imageUrl} alt="" className="h-10 w-10 shrink-0 rounded-lg object-cover" />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-muted">{sheet.senderName}</p>
+                <p className="line-clamp-1 text-sm">{preview(sheet)}</p>
+              </div>
+            </div>
+
+            <button onClick={() => startReply(sheet)} className="sheet-item">
+              <Icon name="arrowRight" size={19} className="text-muted" />
+              {t('chat.reply')}
+            </button>
+
+            {sheet.text && (
+              <button onClick={() => copyText(sheet)} className="sheet-item">
+                <Icon name="tag" size={19} className="text-muted" />
+                {t('chat.copy')}
+              </button>
+            )}
+
+            {sheet.senderId === user?.uid && sheet.text && (
+              <button onClick={() => startEdit(sheet)} className="sheet-item">
+                <Icon name="name" size={19} className="text-muted" />
+                {t('chat.edit')}
+              </button>
+            )}
+
+            {isAdmin && isGroup && (
+              <button
+                onClick={() =>
+                  chat?.pinnedMsgId === sheet.id ? (setSheet(null), onUnpin()) : onPin(sheet)
+                }
+                className="sheet-item"
+              >
+                <Icon name="tag" size={19} className="text-muted" />
+                {chat?.pinnedMsgId === sheet.id ? t('chat.unpin') : t('chat.pin')}
+              </button>
+            )}
+
+            {(sheet.senderId === user?.uid || isAdmin) &&
+              (confirmDel ? (
+                <button onClick={() => onDelete(sheet)} className="sheet-item-danger font-extrabold">
+                  <Icon name="trash" size={19} />
+                  {t('chat.deleteSure')}
+                </button>
+              ) : (
+                <button onClick={() => setConfirmDel(true)} className="sheet-item-danger">
+                  <Icon name="trash" size={19} />
+                  {t('common.delete')}
+                </button>
+              ))}
+
+            <button
+              onClick={() => setSheet(null)}
+              className="sheet-item mt-1 justify-center border-t border-line text-muted"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* ======= Настройки группы: задержка (только админ) ======= */}
+      {settings && isAdmin && isGroup && (
+        <>
+          <div className="sheet-backdrop" onClick={() => setSettings(false)} />
+          <div className="sheet" role="dialog" aria-modal="true">
+            <div className="sheet-grip" />
+            <div className="px-5 pb-2 pt-2">
+              <p className="text-[15px] font-bold">{t('chat.slowmode')}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">{t('chat.slowmodeHint')}</p>
+            </div>
+            {SLOWMODE_OPTIONS.map((sec) => (
+              <button
+                key={sec}
+                onClick={() => {
+                  onSlowmode(sec)
+                  setSettings(false)
+                }}
+                className="sheet-item justify-between"
+              >
+                <span className="flex items-center gap-3.5">
+                  <Icon name="clock" size={19} className="text-muted" />
+                  {sec === 0 ? t('chat.slowOff') : slowmodeLabel(sec)}
+                </span>
+                {slow === sec && <Icon name="check" size={18} className="text-accent" />}
+              </button>
+            ))}
+            <button
+              onClick={() => setSettings(false)}
+              className="sheet-item mt-1 justify-center border-t border-line text-muted"
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )

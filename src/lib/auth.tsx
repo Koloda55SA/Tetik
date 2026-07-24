@@ -1,11 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { onAuthStateChanged, signInWithCustomToken, signOut as fbSignOut, type User } from 'firebase/auth'
-import { doc, getDoc, serverTimestamp, setDoc } from 'firebase/firestore'
-import { auth, db, ENGINE_URL } from './firebase'
+import { supabase } from './supabase'
 import type { UserProfile } from './types'
 
+/** Минимальный пользователь приложения (uid = auth.users.id) */
+export interface AppUser {
+  uid: string
+  email: string
+}
+
 interface AuthCtx {
-  user: User | null
+  user: AppUser | null
   profile: UserProfile | null
   loading: boolean
   sendCode: (email: string) => Promise<void>
@@ -20,71 +24,74 @@ export function useAuth() {
   return useContext(Ctx)
 }
 
-async function engine(path: string, body: unknown): Promise<any> {
-  const res = await fetch(`${ENGINE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `engine ${res.status}`)
-  return data
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AppUser | null>(null)
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  async function loadProfile(u: User | null) {
-    if (!u) {
+  async function loadProfile(uid: string | null) {
+    if (!uid) {
       setProfile(null)
       return
     }
-    const snap = await getDoc(doc(db, 'users', u.uid))
-    if (snap.exists()) setProfile(snap.data() as UserProfile)
+    const { data } = await supabase.from('profiles').select('*').eq('id', uid).maybeSingle()
+    setProfile((data as UserProfile) || null)
   }
 
   useEffect(() => {
-    return onAuthStateChanged(auth, async (u) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const u = session?.user ? { uid: session.user.id, email: session.user.email || '' } : null
       setUser(u)
-      await loadProfile(u).catch(() => {})
-      setLoading(false)
+      loadProfile(u?.uid || null).finally(() => setLoading(false))
     })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const u = session?.user ? { uid: session.user.id, email: session.user.email || '' } : null
+      setUser(u)
+      loadProfile(u?.uid || null)
+    })
+    return () => sub.subscription.unsubscribe()
   }, [])
+
+  /** Создаёт строку профиля при первом входе */
+  async function ensureProfile(uid: string, email: string) {
+    const { data } = await supabase.from('profiles').select('id').eq('id', uid).maybeSingle()
+    if (!data) {
+      await supabase.from('profiles').insert({
+        id: uid,
+        email,
+        displayName: email.split('@')[0],
+        role: 'user',
+      })
+    }
+  }
 
   const value: AuthCtx = {
     user,
     profile,
     loading,
     async sendCode(email) {
-      await engine('/auth/send-code', { email: email.trim().toLowerCase() })
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: { shouldCreateUser: true },
+      })
+      if (error) throw new Error(error.message)
     },
     async verifyCode(email, code) {
-      const { token } = await engine('/auth/verify', {
+      const { data, error } = await supabase.auth.verifyOtp({
         email: email.trim().toLowerCase(),
-        code: code.trim(),
+        token: code.trim(),
+        type: 'email',
       })
-      const cred = await signInWithCustomToken(auth, token)
-      // создаём/обновляем профиль при первом входе
-      const ref = doc(db, 'users', cred.user.uid)
-      const snap = await getDoc(ref)
-      if (!snap.exists()) {
-        await setDoc(ref, {
-          uid: cred.user.uid,
-          email: email.trim().toLowerCase(),
-          displayName: email.split('@')[0],
-          role: 'user',
-          createdAt: serverTimestamp(),
-        })
-      }
-      await loadProfile(cred.user)
+      if (error || !data.user) throw new Error(error?.message || 'verify failed')
+      await ensureProfile(data.user.id, email.trim().toLowerCase())
+      await loadProfile(data.user.id)
     },
     async signOut() {
-      await fbSignOut(auth)
+      await supabase.auth.signOut()
     },
     async refreshProfile() {
-      await loadProfile(auth.currentUser)
+      const { data: { session } } = await supabase.auth.getSession()
+      await loadProfile(session?.user?.id || null)
     },
   }
 

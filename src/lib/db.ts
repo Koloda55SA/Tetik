@@ -1,14 +1,7 @@
-import {
-  addDoc, collection, deleteDoc, doc, getDoc, getDocs, increment, limit,
-  onSnapshot, orderBy, query, serverTimestamp, setDoc, updateDoc, where,
-  type QueryConstraint, type Unsubscribe,
-} from 'firebase/firestore'
-import { getDownloadURL, ref as sRef, uploadBytes } from 'firebase/storage'
-import { db, storage } from './firebase'
-import {
-  listingKeywords,
-  type ChatMessage, type ChatMeta, type Listing, type Order, type Product, type Store,
-} from './types'
+import { supabase } from './supabase'
+import type { ChatMessage, ChatMeta, Listing, Order, Product, Store, UserProfile } from './types'
+
+type Unsubscribe = () => void
 
 /* ---------------- Базар ---------------- */
 
@@ -22,120 +15,112 @@ export interface ListingFilters {
   maxPrice?: number
 }
 
-/**
- * Firestore позволяет 1 равенство + orderBy без лишних индексов-комбинаций,
- * поэтому берём самый селективный фильтр на сервере, остальное дочищаем на клиенте.
- */
+/** Postgres тянет все фильтры сервер-сайд + русский полнотекстовый поиск */
 export async function fetchListings(f: ListingFilters, max = 60): Promise<Listing[]> {
-  const cons: QueryConstraint[] = [where('status', '==', 'active')]
-  if (f.q) {
-    const token = f.q.toLowerCase().split(/\s+/).filter((w) => w.length >= 2)[0]
-    if (token) cons.push(where('keywords', 'array-contains', token))
-  } else if (f.category) {
-    cons.push(where('category', '==', f.category))
-  } else if (f.brand) {
-    cons.push(where('brand', '==', f.brand))
-  } else if (f.city) {
-    cons.push(where('city', '==', f.city))
-  }
-  cons.push(orderBy('bumpedAt', 'desc'), limit(max))
-  const snap = await getDocs(query(collection(db, 'listings'), ...cons))
-  let items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Listing)
-
-  // клиентская дочистка остальных фильтров
-  const qWords = f.q ? f.q.toLowerCase().split(/\s+/).filter((w) => w.length >= 2) : []
-  items = items.filter((l) => {
-    if (f.category && l.category !== f.category) return false
-    if (f.brand && l.brand !== f.brand) return false
-    if (f.city && l.city !== f.city) return false
-    if (f.condition && l.condition !== f.condition) return false
-    if (f.minPrice != null && l.price < f.minPrice) return false
-    if (f.maxPrice != null && l.price > f.maxPrice) return false
-    if (qWords.length > 1) {
-      const hay = `${l.title} ${l.desc} ${l.brand} ${l.model}`.toLowerCase()
-      if (!qWords.every((w) => hay.includes(w))) return false
-    }
-    return true
-  })
-  return items
+  let q = supabase.from('listings').select('*').eq('status', 'active')
+  if (f.q) q = q.textSearch('fts', f.q, { type: 'websearch', config: 'russian' })
+  if (f.category) q = q.eq('category', f.category)
+  if (f.brand) q = q.eq('brand', f.brand)
+  if (f.city) q = q.eq('city', f.city)
+  if (f.condition) q = q.eq('condition', f.condition)
+  if (f.minPrice != null) q = q.gte('price', f.minPrice)
+  if (f.maxPrice != null) q = q.lte('price', f.maxPrice)
+  const { data, error } = await q.order('bumpedAt', { ascending: false }).limit(max)
+  if (error) throw error
+  return (data as Listing[]) || []
 }
 
 export async function getListing(id: string): Promise<Listing | null> {
-  const snap = await getDoc(doc(db, 'listings', id))
-  if (!snap.exists()) return null
-  updateDoc(snap.ref, { views: increment(1) }).catch(() => {})
-  return { id: snap.id, ...snap.data() } as Listing
+  const { data } = await supabase.from('listings').select('*').eq('id', id).maybeSingle()
+  if (data) supabase.rpc('increment_views', { lid: id }).then(() => {})
+  return (data as Listing) || null
 }
 
-export async function uploadPhotos(uid: string, files: File[], folder = 'listings'): Promise<string[]> {
+export async function uploadPhotos(uid: string, files: File[], bucket = 'listings'): Promise<string[]> {
   const urls: string[] = []
   for (const file of files.slice(0, 8)) {
-    const path = `${folder}/${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`
-    const r = sRef(storage, path)
-    await uploadBytes(r, file, { contentType: file.type || 'image/jpeg' })
-    urls.push(await getDownloadURL(r))
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+    const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const { error } = await supabase.storage.from(bucket).upload(path, file, {
+      contentType: file.type || 'image/jpeg',
+      upsert: false,
+    })
+    if (error) throw error
+    urls.push(supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl)
   }
   return urls
 }
 
 export async function createListing(
-  data: Omit<Listing, 'id' | 'keywords' | 'views' | 'createdAt' | 'bumpedAt' | 'status' | 'currency'>,
+  data: Omit<Listing, 'id' | 'views' | 'createdAt' | 'bumpedAt' | 'status' | 'currency'>,
 ): Promise<string> {
-  const docData = {
-    ...data,
-    currency: 'KGS',
-    status: 'active',
-    keywords: listingKeywords(data),
-    views: 0,
-    createdAt: serverTimestamp(),
-    bumpedAt: serverTimestamp(),
-  }
-  const ref = await addDoc(collection(db, 'listings'), docData)
-  return ref.id
+  const { data: row, error } = await supabase
+    .from('listings')
+    .insert({ ...data, currency: 'KGS', status: 'active' })
+    .select('id')
+    .single()
+  if (error) throw error
+  return row.id as string
 }
 
 export async function setListingStatus(id: string, status: 'active' | 'sold' | 'archived') {
-  await updateDoc(doc(db, 'listings', id), { status })
+  const { error } = await supabase.from('listings').update({ status }).eq('id', id)
+  if (error) throw error
 }
 
 export async function bumpListing(id: string) {
-  await updateDoc(doc(db, 'listings', id), { bumpedAt: serverTimestamp() })
+  const { error } = await supabase.from('listings').update({ bumpedAt: new Date().toISOString() }).eq('id', id)
+  if (error) throw error
 }
 
 export async function deleteListing(id: string) {
-  await deleteDoc(doc(db, 'listings', id))
+  const { error } = await supabase.from('listings').delete().eq('id', id)
+  if (error) throw error
 }
 
 export async function myListings(uid: string): Promise<Listing[]> {
-  const snap = await getDocs(
-    query(collection(db, 'listings'), where('sellerId', '==', uid), orderBy('createdAt', 'desc'), limit(100)),
-  )
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Listing)
+  const { data } = await supabase
+    .from('listings').select('*').eq('sellerId', uid)
+    .order('createdAt', { ascending: false }).limit(100)
+  return (data as Listing[]) || []
+}
+
+/* ---------------- Профиль ---------------- */
+
+export async function updateProfile(uid: string, fields: Partial<UserProfile>) {
+  const { error } = await supabase.from('profiles').update(fields).eq('id', uid)
+  if (error) throw error
 }
 
 /* ---------------- Чаты ---------------- */
 
 export async function listGroupChats(): Promise<ChatMeta[]> {
-  const snap = await getDocs(
-    query(collection(db, 'chats'), where('type', '==', 'group'), orderBy('lastMsgAt', 'desc'), limit(50)),
-  )
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ChatMeta)
+  const { data } = await supabase
+    .from('chats').select('*').eq('type', 'group')
+    .order('lastMsgAt', { ascending: false, nullsFirst: false }).limit(50)
+  return (data as ChatMeta[]) || []
 }
 
 export function subscribeMyDms(uid: string, cb: (chats: ChatMeta[]) => void): Unsubscribe {
-  return onSnapshot(
-    query(collection(db, 'chats'), where('type', '==', 'dm'), where('members', 'array-contains', uid), limit(50)),
-    (snap) => {
-      const items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ChatMeta)
-      items.sort((a, b) => (b.lastMsgAt?.toMillis() ?? 0) - (a.lastMsgAt?.toMillis() ?? 0))
-      cb(items)
-    },
-  )
+  async function load() {
+    const { data } = await supabase
+      .from('chats').select('*').eq('type', 'dm').contains('members', [uid])
+      .order('lastMsgAt', { ascending: false, nullsFirst: false }).limit(50)
+    cb((data as ChatMeta[]) || [])
+  }
+  load()
+  const channel = supabase
+    .channel(`dms-${uid}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'chats' }, () => load())
+    .subscribe()
+  return () => {
+    supabase.removeChannel(channel)
+  }
 }
 
 export async function getChat(id: string): Promise<ChatMeta | null> {
-  const snap = await getDoc(doc(db, 'chats', id))
-  return snap.exists() ? ({ id: snap.id, ...snap.data() } as ChatMeta) : null
+  const { data } = await supabase.from('chats').select('*').eq('id', id).maybeSingle()
+  return (data as ChatMeta) || null
 }
 
 /** DM-чат по паре пользователей: детерминированный id */
@@ -144,76 +129,93 @@ export async function ensureDmChat(
   other: { uid: string; name: string },
 ): Promise<string> {
   const id = ['dm', ...[me.uid, other.uid].sort()].join('_')
-  const ref = doc(db, 'chats', id)
-  const snap = await getDoc(ref)
-  if (!snap.exists()) {
-    await setDoc(ref, {
+  const { data } = await supabase.from('chats').select('id').eq('id', id).maybeSingle()
+  if (!data) {
+    const { error } = await supabase.from('chats').insert({
+      id,
       type: 'dm',
       title: '',
       members: [me.uid, other.uid],
       memberNames: { [me.uid]: me.name, [other.uid]: other.name },
-      createdAt: serverTimestamp(),
-      lastMsgAt: serverTimestamp(),
+      lastMsgAt: new Date().toISOString(),
     })
+    if (error && !String(error.message).includes('duplicate')) throw error
   }
   return id
 }
 
 export function subscribeMessages(chatId: string, cb: (msgs: ChatMessage[]) => void): Unsubscribe {
-  return onSnapshot(
-    query(collection(db, 'chats', chatId, 'messages'), orderBy('createdAt', 'desc'), limit(100)),
-    (snap) => cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ChatMessage).reverse()),
-  )
+  let msgs: ChatMessage[] = []
+  async function load() {
+    const { data } = await supabase
+      .from('messages').select('*').eq('chatId', chatId)
+      .order('createdAt', { ascending: true }).limit(200)
+    msgs = (data as ChatMessage[]) || []
+    cb(msgs)
+  }
+  load()
+  const channel = supabase
+    .channel(`chat-${chatId}`)
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatId=eq.${chatId}` },
+      (payload) => {
+        msgs = [...msgs, payload.new as ChatMessage]
+        cb(msgs)
+      },
+    )
+    .subscribe()
+  return () => {
+    supabase.removeChannel(channel)
+  }
 }
 
 export async function sendMessage(chatId: string, sender: { uid: string; name: string }, text: string) {
   const clean = text.trim().slice(0, 2000)
   if (!clean) return
-  await addDoc(collection(db, 'chats', chatId, 'messages'), {
+  const { error } = await supabase.from('messages').insert({
+    chatId,
     senderId: sender.uid,
     senderName: sender.name,
     text: clean,
-    createdAt: serverTimestamp(),
   })
-  await updateDoc(doc(db, 'chats', chatId), {
-    lastMsg: clean.slice(0, 80),
-    lastMsgAt: serverTimestamp(),
-  }).catch(() => {})
+  if (error) throw error
+  await supabase.from('chats')
+    .update({ lastMsg: clean.slice(0, 80), lastMsgAt: new Date().toISOString() })
+    .eq('id', chatId)
 }
 
 /* ---------------- Магазины ---------------- */
 
 export async function listStores(): Promise<Store[]> {
-  const snap = await getDocs(query(collection(db, 'stores'), orderBy('createdAt', 'desc'), limit(50)))
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Store)
+  const { data } = await supabase.from('stores').select('*').order('createdAt', { ascending: false }).limit(50)
+  return (data as Store[]) || []
 }
 
 export async function getStoreBySlug(slug: string): Promise<Store | null> {
-  const snap = await getDocs(query(collection(db, 'stores'), where('slug', '==', slug), limit(1)))
-  if (snap.empty) return null
-  const d = snap.docs[0]
-  return { id: d.id, ...d.data() } as Store
+  const { data } = await supabase.from('stores').select('*').eq('slug', slug).maybeSingle()
+  return (data as Store) || null
 }
 
 export async function listProducts(storeId: string): Promise<Product[]> {
-  const snap = await getDocs(query(collection(db, 'stores', storeId, 'products'), limit(200)))
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Product)
+  const { data } = await supabase.from('products').select('*').eq('storeId', storeId).limit(200)
+  return (data as Product[]) || []
 }
 
 export async function createOrder(o: Omit<Order, 'id' | 'status' | 'createdAt'>): Promise<string> {
-  const ref = await addDoc(collection(db, 'orders'), {
-    ...o,
-    status: 'new',
-    createdAt: serverTimestamp(),
-  })
-  return ref.id
+  const { data, error } = await supabase
+    .from('orders').insert({ ...o, status: 'new' }).select('id').single()
+  if (error) throw error
+  return data.id as string
 }
 
 /* ---------------- Жалобы ---------------- */
 
-export async function reportTarget(targetType: 'listing' | 'user' | 'message', targetId: string, reason: string, byUid: string) {
-  await addDoc(collection(db, 'reports'), {
-    targetType, targetId, reason: reason.slice(0, 500), byUid,
-    createdAt: serverTimestamp(),
-  })
+export async function reportTarget(
+  targetType: 'listing' | 'user' | 'message',
+  targetId: string,
+  reason: string,
+  byUid: string,
+) {
+  await supabase.from('reports').insert({ targetType, targetId, reason: reason.slice(0, 500), byUid })
 }

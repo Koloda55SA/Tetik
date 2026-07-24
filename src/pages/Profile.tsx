@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { doc, updateDoc } from 'firebase/firestore'
-import { db } from '../lib/firebase'
 import { useAuth } from '../lib/auth'
-import { bumpListing, myListings, setListingStatus, deleteListing } from '../lib/db'
+import { bumpListing, myListings, setListingStatus, deleteListing, updateProfile } from '../lib/db'
 import { setLang } from '../lib/i18n'
 import { formatPrice, type Listing } from '../lib/types'
 
@@ -25,7 +23,7 @@ export default function Profile() {
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const fd = new FormData(e.currentTarget)
-    await updateDoc(doc(db, 'users', user!.uid), {
+    await updateProfile(user!.uid, {
       displayName: String(fd.get('name') || '').trim() || 'Пользователь',
       city: String(fd.get('city') || ''),
       phone: String(fd.get('phone') || '').trim(),

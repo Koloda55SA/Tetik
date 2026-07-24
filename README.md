@@ -4,54 +4,52 @@
 
 by **radev.digital** × **Murabaha Auto (Ош)**
 
+**Репозиторий**: https://github.com/Koloda55SA/Tetik · **Прод**: https://tetik.radev.digital
+
 ## Стек
 
 | Слой | Технология |
 |---|---|
 | Фронтенд | Vite + React 18 + TypeScript + Tailwind (SPA, PWA, mobile-first) |
-| База/файлы | Firebase: Firestore + Storage (тариф Spark, бесплатно) |
-| Auth | Код на почту → Cloudflare Worker → Firebase custom token (без паролей) |
-| Движок | Cloudflare Worker `tetik-engine`: OTP-письма (Brevo), автомодерация, автоархив |
-| Хостинг | Cloudflare Pages |
+| Бэкенд | Supabase (бесплатный тариф): Postgres + RLS, Auth (OTP-код на почту), Storage, Realtime |
+| Поиск | Postgres full-text search (русская морфология) + фильтры сервер-сайд |
+| Автомодерация | SQL-функция run_automod() по расписанию pg_cron (+ дубль из воркера) |
+| Хостинг | Cloudflare Pages + Worker tetik-pinger (анти-пауза Supabase) |
 | Языки | Русский + Кыргызча (i18next) |
 | Мобильные | Готово к упаковке в Capacitor → Android APK + iOS |
 
 ## Структура
 
 ```
-src/            — фронтенд (pages, components, lib)
-firebase/       — firestore.rules, storage.rules, индексы
-workers/engine/ — Cloudflare Worker: auth-коды + cron-автомодерация
-scripts/        — seed демо-данных
-docs/           — архитектура, роадмап
-public/         — бренд-ассеты (логотип, фоны, категории)
+src/                 — фронтенд (pages, components, lib)
+supabase/migrations/ — схема БД, RLS-политики, поиск, storage-бакеты
+supabase/seed.sql    — стартовые данные (Murabaha Auto, чаты, демо-объявления)
+workers/engine/      — Cloudflare Worker: пинг Supabase + автомодерация
+scripts/             — unpack-assets (base64 → картинки), pages-upload (direct upload)
+docs/                — архитектура, роадмап
+public/              — бренд-ассеты (генерируются из assets-b64/ на postinstall)
 ```
-
-**Репозиторий**: https://github.com/Koloda55SA/Tetik
 
 ## Запуск локально
 
 ```bash
 npm install            # postinstall сам распакует картинки из assets-b64/
-cp .env.example .env   # заполнить конфиг Firebase + URL воркера
+cp .env.example .env   # вставить VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY
 npm run dev
 ```
 
-> 📦 **Про картинки**: бинарные ассеты (jpg/png) хранятся в git как base64-текст в `assets-b64/`
-> (ограничение API-коммитов). `npm install` автоматически распаковывает их в `public/`.
-> Добавил новую картинку — прогони `base64 -w0 файл > assets-b64/путь.b64` и закоммить только `.b64`.
+## Деплой
 
-## Деплой (автоматизирован)
-
-1. **Firebase**: создать проект → включить Firestore, Storage → загрузить `firebase/*.rules` и индексы.
-2. **Worker**: `npm run deploy:engine`, секреты: `wrangler secret put FIREBASE_SERVICE_ACCOUNT`, `wrangler secret put BREVO_API_KEY`.
-3. **Pages**: `npm run build && npm run deploy:pages` (или подключить репо к Cloudflare Pages — автодеплой на каждый push).
+- **База**: миграции в `supabase/migrations/` применяются через Supabase MCP/CLI (`supabase db push`)
+- **Сайт**: `npm run build` → Cloudflare Pages (git-интеграция или direct upload: `PAGES_JWT=<jwt> node scripts/pages-upload.mjs`)
+- **Пингер**: `npx wrangler deploy --config workers/engine/wrangler.toml`
 
 ## Автономная работа
 
-- Вход по коду на почту — без участия админа
-- Cron-воркер каждые 6ч: блокировка объявлений по стоп-словам, автоархив старше 60 дней, пульс в `system/health`
-- Правила безопасности Firestore не дают клиентам ломать данные (роли, verified, blocked — только со стороны движка)
+- Вход по 6-значному коду на почту — Supabase Auth, без участия админа
+- Автомодерация: pg_cron каждые 6ч блокирует объявления по стоп-словам, архивирует старше 60 дней
+- Worker-пингер не даёт бесплатному проекту Supabase заснуть (пауза после 7 дней тишины)
+- RLS-политики + триггеры-защитники: чужое не отредактировать, blocked не разблокировать, verified самому не поставить
 
 ## Примечание по кыргызскому
 

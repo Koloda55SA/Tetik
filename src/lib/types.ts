@@ -1,5 +1,3 @@
-import type { Timestamp } from 'firebase/firestore'
-
 export type CategorySlug =
   | 'engine' | 'suspension' | 'body' | 'electrics' | 'interior'
   | 'brakes' | 'wheels' | 'oils' | 'accessories' | 'tools'
@@ -39,6 +37,9 @@ export type ListingStatus = 'active' | 'sold' | 'archived' | 'blocked'
 export type Condition = 'new' | 'used'
 export type Origin = 'original' | 'aftermarket'
 
+/** timestamptz из Postgres приходит ISO-строкой */
+export type Ts = string
+
 export interface Listing {
   id?: string
   title: string
@@ -58,14 +59,13 @@ export interface Listing {
   phone: string
   whatsapp?: string
   status: ListingStatus
-  keywords: string[]
   views: number
-  createdAt: Timestamp
-  bumpedAt: Timestamp
+  createdAt: Ts
+  bumpedAt: Ts
 }
 
 export interface UserProfile {
-  uid: string
+  id: string
   email: string
   displayName: string
   city?: string
@@ -74,7 +74,7 @@ export interface UserProfile {
   photoURL?: string
   role: 'user'
   lang?: 'ru' | 'ky'
-  createdAt: Timestamp
+  createdAt: Ts
 }
 
 export type ChatType = 'group' | 'dm'
@@ -88,17 +88,18 @@ export interface ChatMeta {
   members: string[]
   memberNames?: Record<string, string>
   lastMsg?: string
-  lastMsgAt?: Timestamp
-  createdAt: Timestamp
+  lastMsgAt?: Ts
+  createdAt: Ts
 }
 
 export interface ChatMessage {
   id?: string
+  chatId?: string
   senderId: string
   senderName: string
   text: string
   imageUrl?: string
-  createdAt: Timestamp
+  createdAt: Ts
 }
 
 export interface Store {
@@ -114,11 +115,12 @@ export interface Store {
   whatsapp?: string
   verified: boolean
   ownerUid: string
-  createdAt: Timestamp
+  createdAt: Ts
 }
 
 export interface Product {
   id?: string
+  storeId?: string
   name: string
   price: number
   photos: string[]
@@ -140,16 +142,7 @@ export interface Order {
   total: number
   comment?: string
   status: OrderStatus
-  createdAt: Timestamp
-}
-
-export function listingKeywords(l: Pick<Listing, 'title' | 'brand' | 'model' | 'category'>): string[] {
-  const words = `${l.title} ${l.brand} ${l.model} ${l.category}`
-    .toLowerCase()
-    .replace(/[^a-zа-яё0-9\s-]/gi, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length >= 2)
-  return Array.from(new Set(words)).slice(0, 30)
+  createdAt: Ts
 }
 
 export function formatPrice(n: number): string {

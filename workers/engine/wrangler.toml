@@ -1,18 +1,11 @@
-name = "tetik-engine"
+name = "tetik-pinger"
 main = "src/index.js"
 compatibility_date = "2026-01-01"
 
-# Автомодерация + автоархив каждые 6 часов
+# Анти-пауза Supabase + дубль автомодерации, каждые 6 часов
 [triggers]
-crons = ["17 */6 * * *"]
+crons = ["0 */6 * * *"]
 
 [vars]
-# Заполняются при деплое (скрипт deploy сам подставит из окружения)
-FIREBASE_PROJECT_ID = "CHANGE_ME"
-ALLOWED_ORIGINS = "http://localhost:5173"
-SENDER_EMAIL = "no-reply@tetik.kg"
-SENDER_NAME = "Tetik"
-
-# Секреты (задаются через `wrangler secret put`, НЕ коммитятся):
-#   FIREBASE_SERVICE_ACCOUNT — полный JSON сервисного аккаунта Firebase
-#   BREVO_API_KEY            — API-ключ Brevo для отправки писем с кодом
+SUPABASE_URL = "https://yugknlsapjcuelegbfpt.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl1Z2tubHNhcGpjdWVsZWdiZnB0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ5MDUzNzcsImV4cCI6MjEwMDQ4MTM3N30.u5BLA_4eGVmMKC0gaN1QiXrQBqNjtKGiwXkC6BEE2vE"

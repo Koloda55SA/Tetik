@@ -29,5 +29,5 @@
 - [ ] Deep links tetik.kg/l/{id} → приложение
 
 ## Инфра-заметки
-- Лимиты бесплатных тарифов: Firestore 50k чтений/день, Brevo 300 писем/день, Workers 100k запросов/день. При росте: Blaze (pay-as-you-go) + платный Brevo.
+- Лимиты бесплатных тарифов: Supabase 500МБ БД + 1ГБ фото + 5ГБ трафика/мес, Workers 100k запросов/день. При росте: Supabase Pro ($25/мес). Для массовых писем — свой SMTP (Brevo) в настройках Auth.
 - Домен: tetik.kg через Cloudflare (регистратор .kg — cctld.kg / hoster.kg).

@@ -90,6 +90,21 @@ export interface ChatMeta {
   lastMsg?: string
   lastMsgAt?: Ts
   createdAt: Ts
+  /** антифлуд: пауза между сообщениями в секундах, 0 — выключено */
+  slowmodeSec?: number
+  pinnedMsgId?: string | null
+  pinnedText?: string | null
+  pinnedName?: string | null
+}
+
+/** Варианты задержки для админа */
+export const SLOWMODE_OPTIONS = [0, 10, 30, 60, 300, 900, 3600] as const
+
+export function slowmodeLabel(sec: number): string {
+  if (!sec) return 'выкл'
+  if (sec < 60) return `${sec} сек`
+  if (sec < 3600) return `${Math.round(sec / 60)} мин`
+  return `${Math.round(sec / 3600)} ч`
 }
 
 export interface ChatMessage {
@@ -101,6 +116,11 @@ export interface ChatMessage {
   imageUrl?: string | null
   audioUrl?: string | null
   createdAt: Ts
+  replyToId?: string | null
+  replyToName?: string | null
+  replyToText?: string | null
+  deleted?: boolean
+  editedAt?: Ts | null
 }
 
 export interface Store {

@@ -236,9 +236,19 @@ export function subscribeMessages(chatId: string, cb: (msgs: ChatMessage[]) => v
     .channel(`chat-${chatId}-${Math.random().toString(36).slice(2, 9)}`)
     .on(
       'postgres_changes',
-      { event: 'INSERT', schema: 'public', table: 'messages', filter: `chatId=eq.${chatId}` },
+      { event: '*', schema: 'public', table: 'messages', filter: `chatId=eq.${chatId}` },
       (payload) => {
-        msgs = [...msgs, payload.new as ChatMessage]
+        const row = payload.new as ChatMessage
+        if (payload.eventType === 'INSERT') {
+          if (!msgs.some((m) => m.id === row.id)) msgs = [...msgs, row]
+        } else if (payload.eventType === 'UPDATE') {
+          // при DEFAULT replica identity в payload приходит только часть полей —
+          // подстраховываемся мержем со старой версией
+          msgs = msgs.map((m) => (m.id === row.id ? { ...m, ...row } : m))
+        } else if (payload.eventType === 'DELETE') {
+          const gone = payload.old as { id?: string }
+          msgs = msgs.filter((m) => m.id !== gone?.id)
+        }
         cb(msgs)
       },
     )
@@ -272,6 +282,7 @@ export async function sendMessage(
   sender: { uid: string; name: string },
   text: string,
   media?: { imageUrl?: string; audioUrl?: string },
+  replyTo?: { id: string; name: string; text: string } | null,
 ) {
   const clean = text.trim().slice(0, 2000)
   if (!clean && !media?.imageUrl && !media?.audioUrl) return
@@ -282,12 +293,56 @@ export async function sendMessage(
     text: clean,
     imageUrl: media?.imageUrl ?? null,
     audioUrl: media?.audioUrl ?? null,
+    replyToId: replyTo?.id ?? null,
+    replyToName: replyTo?.name ?? null,
+    replyToText: replyTo ? replyTo.text.slice(0, 140) : null,
   })
   if (error) throw error
   const preview = clean || (media?.imageUrl ? '📷 Фото' : '🎤 Голосовое')
   await supabase.from('chats')
     .update({ lastMsg: preview.slice(0, 80), lastMsgAt: new Date().toISOString() })
     .eq('id', chatId)
+}
+
+/** Удалить сообщение (автор или админ) — остаётся плашка «сообщение удалено» */
+export async function deleteMessage(id: string) {
+  const { error } = await supabase.from('messages').update({ deleted: true }).eq('id', id)
+  if (error) throw error
+}
+
+/** Изменить текст своего сообщения */
+export async function editMessage(id: string, text: string) {
+  const clean = text.trim().slice(0, 2000)
+  if (!clean) return
+  const { error } = await supabase.from('messages').update({ text: clean }).eq('id', id)
+  if (error) throw error
+}
+
+/** Задержка между сообщениями в группе (антифлуд), 0 — выключить. Только админ */
+export async function setSlowmode(chatId: string, secs: number) {
+  const { error } = await supabase.rpc('set_slowmode', { chat_id: chatId, secs })
+  if (error) throw error
+}
+
+/** Закрепить сообщение (null — снять закреп). Только админ */
+export async function pinMessage(chatId: string, msgId: string | null) {
+  const { error } = await supabase.rpc('pin_message', { chat_id: chatId, msg_id: msgId })
+  if (error) throw error
+}
+
+/** Изменения самого чата (закреп, slowmode, состав) в реальном времени */
+export function subscribeChat(chatId: string, cb: (chat: ChatMeta) => void): Unsubscribe {
+  const channel = supabase
+    .channel(`chatmeta-${chatId}-${Math.random().toString(36).slice(2, 9)}`)
+    .on(
+      'postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'chats', filter: `id=eq.${chatId}` },
+      (payload) => cb(payload.new as ChatMeta),
+    )
+    .subscribe()
+  return () => {
+    supabase.removeChannel(channel)
+  }
 }
 
 /* ---------------- Магазины ---------------- */

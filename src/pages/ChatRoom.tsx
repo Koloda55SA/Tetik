@@ -134,24 +134,22 @@ export default function ChatRoom() {
     return () => clearInterval(iv)
   }, [msgs, slow, user?.uid, isGroup, isAdmin])
 
-  // Клавиатура на телефоне: держим окно чата ровно в видимой области.
-  // Без этого Safari «уносит» страницу вверх и не видно, что печатаешь.
+  // Клавиатура на телефоне: окно чата жёстко следует за видимой областью.
+  // Safari при открытии клавиатуры не уменьшает окно, а СДВИГАЕТ видимую
+  // область вверх — поэтому нужен не только height, но и offsetTop.
   useEffect(() => {
-    const vv = window.visualViewport
     const root = document.documentElement
     root.classList.add('chat-page')
-
-    if (!vv) {
-      return () => root.classList.remove('chat-page')
-    }
+    const vv = window.visualViewport
+    if (!vv) return () => root.classList.remove('chat-page')
 
     let raf = 0
     const apply = () => {
       cancelAnimationFrame(raf)
       raf = requestAnimationFrame(() => {
-        root.style.setProperty('--vvh', `${vv.height}px`)
-        // страница не должна быть прокручена: чат и так во весь экран
-        if (window.scrollY !== 0) window.scrollTo(0, 0)
+        // высота видимой части и её смещение от верха документа
+        root.style.setProperty('--vvh', `${Math.round(vv.height)}px`)
+        root.style.setProperty('--vvt', `${Math.round(vv.offsetTop)}px`)
         const box = listRef.current
         if (box) box.scrollTop = box.scrollHeight
       })
@@ -159,15 +157,34 @@ export default function ChatRoom() {
     apply()
     vv.addEventListener('resize', apply)
     vv.addEventListener('scroll', apply)
+    window.addEventListener('orientationchange', apply)
     return () => {
       cancelAnimationFrame(raf)
       vv.removeEventListener('resize', apply)
       vv.removeEventListener('scroll', apply)
-      vv.removeEventListener('scroll', apply)
+      window.removeEventListener('orientationchange', apply)
       root.style.removeProperty('--vvh')
+      root.style.removeProperty('--vvt')
       root.classList.remove('chat-page')
     }
   }, [])
+
+  // При фокусе в поле держим ленту у низа: iOS иначе прокручивает документ,
+  // пытаясь «показать» поле, и переписка уезжает из вида
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    const onFocus = () => {
+      // даём клавиатуре появиться, затем выравниваем
+      setTimeout(() => {
+        window.scrollTo(0, 0)
+        const box = listRef.current
+        if (box) box.scrollTop = box.scrollHeight
+      }, 250)
+    }
+    el.addEventListener('focus', onFocus)
+    return () => el.removeEventListener('focus', onFocus)
+  }, [canWrite])
 
   // Пока открыта любая панель — фон под ней не прокручивается
   useEffect(() => {
@@ -680,7 +697,7 @@ export default function ChatRoom() {
 
           <input
             ref={inputRef}
-            className="h-10 flex-1 rounded-xl border-0 bg-surface2 px-4 text-[15px] text-ink placeholder:text-muted focus:outline-none"
+            className="h-10 flex-1 rounded-xl border-0 bg-surface2 px-4 text-base text-ink placeholder:text-muted focus:outline-none md:text-[15px]"
             placeholder={
               sending
                 ? t('chat.sending')

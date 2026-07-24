@@ -76,17 +76,14 @@ body {
 
 /* ГЛАВНОЕ ПРОТИВ САМОПРОИЗВОЛЬНОГО ЗУМА НА iOS:
    Safari приближает страницу, если у поля шрифт меньше 16px.
-   Держим 16px на телефонах, а на больших экранах возвращаем компактный вид. */
-input,
-textarea,
-select {
-  font-size: 16px;
-}
-@media (min-width: 768px) {
+   Классы вроде .input задают 15px и по специфичности сильнее обычного
+   правила, поэтому на телефонах перебиваем принудительно. */
+@media (max-width: 767px) {
   input,
   textarea,
-  select {
-    font-size: inherit;
+  select,
+  .input {
+    font-size: 16px !important;
   }
 }
 
@@ -236,11 +233,27 @@ body.sheet-open {
    На телефоне клавиатура перекрывает часть экрана. --vvh задаёт
    ChatRoom через visualViewport, поэтому поле ввода всегда видно. */
 .chat-shell {
-  /* На телефоне чат занимает весь экран: --vvh = высота области,
-     не закрытой клавиатурой. Поле ввода всегда на виду. */
-  height: var(--vvh, 100dvh);
+  height: 100dvh;
   padding: 0.5rem 0.5rem max(env(safe-area-inset-bottom), 0.5rem);
 }
+
+/* На телефоне окно чата прибито к видимой области экрана.
+   --vvh (высота) и --vvt (сдвиг сверху) задаёт ChatRoom из visualViewport:
+   когда открывается клавиатура, Safari сдвигает видимую область,
+   и без этого чат «уезжал» вверх, оставляя пустоту. */
+@media (max-width: 767px) {
+  .chat-shell {
+    position: fixed;
+    top: var(--vvt, 0px);
+    left: 0;
+    right: 0;
+    height: var(--vvh, 100dvh);
+    max-width: none;
+    z-index: 30;
+    padding: 0.5rem 0.5rem max(env(safe-area-inset-bottom), 0.5rem);
+  }
+}
+
 @media (min-width: 768px) {
   .chat-shell {
     height: calc(100dvh - 14rem);
@@ -248,13 +261,20 @@ body.sheet-open {
   }
 }
 
-/* Пока открыта комната чата на телефоне — сама страница не прокручивается,
-   прокрутка живёт только внутри ленты сообщений. */
+/* Пока открыта комната чата на телефоне — документ зафиксирован полностью,
+   иначе iOS при появлении клавиатуры утаскивает страницу вверх.
+   Прокрутка живёт только внутри ленты сообщений. */
 @media (max-width: 767px) {
   html.chat-page,
   html.chat-page body {
     overflow: hidden;
     height: 100%;
-    position: relative;
+    width: 100%;
+    position: fixed;
+    top: 0;
+    left: 0;
+    overscroll-behavior: none;
+    /* документ не должен «резинить» под клавиатурой */
+    touch-action: pan-y;
   }
 }

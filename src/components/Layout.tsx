@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
@@ -7,10 +7,17 @@ import Icon from './Icons'
 
 export default function Layout() {
   const { t, i18n } = useTranslation()
-  const { user } = useAuth()
+  const { user, profile, loading } = useAuth()
   const nav = useNavigate()
   const loc = useLocation()
   const [q, setQ] = useState('')
+
+  // Обязательная анкета: без имени и телефона дальше не пускаем
+  useEffect(() => {
+    if (!loading && user && profile && !profile.phone && loc.pathname !== '/welcome') {
+      nav('/welcome', { replace: true })
+    }
+  }, [loading, user, profile, loc.pathname])
 
   function toggleLang() {
     setLang(i18n.language === 'ru' ? 'ky' : 'ru')

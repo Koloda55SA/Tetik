@@ -9,6 +9,7 @@ import ChatRoom from './pages/ChatRoom'
 import Stores from './pages/Stores'
 import StorePage from './pages/StorePage'
 import Login from './pages/Login'
+import Onboarding from './pages/Onboarding'
 import Profile from './pages/Profile'
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/stores" element={<Stores />} />
         <Route path="/s/:slug" element={<StorePage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/welcome" element={<Onboarding />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Home />} />
       </Route>

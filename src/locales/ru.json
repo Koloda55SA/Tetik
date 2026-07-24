@@ -169,7 +169,9 @@
     "cancel": "Отмена",
     "footer": "Tetik — маркетплейс автозапчастей Кыргызстана",
     "byStudio": "Сделано в radev.digital × Murabaha Auto",
-    "delete": "Удалить"
+    "delete": "Удалить",
+    "draftRestored": "Черновик восстановлен — продолжайте с того же места",
+    "draftClear": "Очистить"
   },
   "fav": {
     "title": "Избранное",

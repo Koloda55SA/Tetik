@@ -69,6 +69,10 @@ export default function Bazar() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={t('home.searchPlaceholder')}
+              type="search"
+              enterKeyHint="search"
+              autoCapitalize="off"
+              autoCorrect="off"
           className="input h-11 pl-10 pr-4"
         />
       </form>

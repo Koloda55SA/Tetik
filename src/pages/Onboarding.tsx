@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { updateProfile } from '../lib/db'
 import { useTitle } from '../lib/useTitle'
 import Icon from '../components/Icons'
+import { useFormDraft } from '../lib/useDraft'
 
 /**
  * Обязательный шаг после первой регистрации: имя и телефон.
@@ -16,6 +17,7 @@ export default function Onboarding() {
   const nav = useNavigate()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const draft = useFormDraft('welcome')
   useTitle(t('auth.completeTitle'))
 
   useEffect(() => {
@@ -41,6 +43,7 @@ export default function Onboarding() {
     try {
       await updateProfile(user.uid, { displayName: name, phone })
       await refreshProfile()
+      draft.clear()
       nav('/')
     } catch {
       setErr(t('common.error'))
@@ -58,7 +61,7 @@ export default function Onboarding() {
         <h1 className="mt-4 text-center text-[22px] font-extrabold tracking-tight">{t('auth.completeTitle')}</h1>
         <p className="mt-1 text-center text-sm text-muted">{t('auth.completeHint')}</p>
 
-        <form onSubmit={onSubmit} className="mt-6 space-y-3">
+        <form ref={draft.ref} onSubmit={onSubmit} className="mt-6 space-y-3">
           <div>
             <label className="mb-1.5 block text-sm font-semibold">{t('profile.name')} *</label>
             <input
@@ -67,6 +70,7 @@ export default function Onboarding() {
               minLength={2}
               maxLength={60}
               autoFocus
+              autoComplete="name"
               className="input h-12"
               placeholder={t('auth.namePlaceholder')}
               defaultValue={profile?.phone ? profile?.displayName : ''}
@@ -79,6 +83,7 @@ export default function Onboarding() {
               required
               type="tel"
               inputMode="tel"
+              autoComplete="tel"
               className="input h-12"
               placeholder="+996 700 123 456"
               defaultValue={profile?.phone || ''}

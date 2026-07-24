@@ -7,6 +7,7 @@ import { setLang } from '../lib/i18n'
 import { avatarHue, avatarInk } from '../lib/format'
 import { formatPrice, CITIES, type Listing } from '../lib/types'
 import Icon from '../components/Icons'
+import { useFormDraft } from '../lib/useDraft'
 
 export default function Profile() {
   const { t, i18n } = useTranslation()
@@ -27,6 +28,8 @@ export default function Profile() {
   const avatarBg = avatarHue(email)
   const avatarColor = avatarInk(email)
   const isDark = document.documentElement.dataset.theme === 'dark'
+
+  const draft = useFormDraft('profile')
 
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -92,7 +95,7 @@ export default function Profile() {
       </div>
 
       {/* Настройки */}
-      <form onSubmit={saveProfile} className="card p-5 space-y-4">
+      <form ref={draft.ref} onSubmit={saveProfile} className="card p-5 space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="mb-1.5 block text-sm font-semibold">{t('profile.name')}</label>
@@ -107,6 +110,8 @@ export default function Profile() {
             <input
               name="phone"
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               className="input"
               defaultValue={profile?.phone || ''}
               placeholder="+996 ..."

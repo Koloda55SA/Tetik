@@ -169,7 +169,9 @@
     "cancel": "Жокко чыгаруу",
     "footer": "Tetik — Кыргызстандын автотетиктер маркетплейси",
     "byStudio": "radev.digital × Murabaha Auto жасады",
-    "delete": "Өчүрүү"
+    "delete": "Өчүрүү",
+    "draftRestored": "Долбоор калыбына келтирилди — ошол жерден улантыңыз",
+    "draftClear": "Тазалоо"
   },
   "fav": {
     "title": "Тандалмалар",

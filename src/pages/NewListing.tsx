@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { createListing, uploadPhotos } from '../lib/db'
 import { BRANDS, CATEGORIES, CITIES, type CategorySlug, type Condition } from '../lib/types'
 import Icon from '../components/Icons'
+import { useFormDraft } from '../lib/useDraft'
 
 export default function NewListing() {
   const { t, i18n } = useTranslation()
@@ -13,6 +14,9 @@ export default function NewListing() {
   const [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  // черновик: случайно обновил страницу — введённое вернётся
+  const draft = useFormDraft('new-listing', { skip: !user })
+  const [restored] = useState(() => draft.hasDraft())
 
   if (!user) {
     return (
@@ -50,6 +54,7 @@ export default function NewListing() {
         phone: String(fd.get('phone') || '').trim(),
         whatsapp: String(fd.get('whatsapp') || '').trim() || undefined,
       } as never)
+      draft.clear()
       nav(`/l/${id}`)
     } catch (e) {
       console.error(e)
@@ -67,7 +72,24 @@ export default function NewListing() {
     <div className="max-w-xl mx-auto">
       <h1 className="section-title mb-5">{t('listing.create')}</h1>
 
-      <form onSubmit={onSubmit} className="space-y-4">
+      {restored && (
+        <div className="card mb-4 flex items-center gap-2.5 border-l-4 border-l-accent p-3.5">
+          <Icon name="check" size={16} className="shrink-0 text-accent" />
+          <p className="flex-1 text-sm">{t('common.draftRestored')}</p>
+          <button
+            type="button"
+            onClick={() => {
+              draft.clear()
+              window.location.reload()
+            }}
+            className="shrink-0 text-xs font-bold text-muted underline"
+          >
+            {t('common.draftClear')}
+          </button>
+        </div>
+      )}
+
+      <form ref={draft.ref} onSubmit={onSubmit} className="space-y-4">
         {/* Фото */}
         <div className="card p-5 space-y-4">
           <p className="text-sm font-semibold">{t('listing.photos')}</p>
@@ -118,7 +140,15 @@ export default function NewListing() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-semibold">{t('listing.priceLabel')}</label>
-            <input name="price" type="number" required min={0} className="input" placeholder="5000" />
+            <input
+              name="price"
+              type="number"
+              inputMode="numeric"
+              required
+              min={0}
+              className="input"
+              placeholder="5000"
+            />
           </div>
         </div>
 
@@ -143,7 +173,13 @@ export default function NewListing() {
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-semibold">{t('listing.yearLabel')}</label>
-              <input name="year" className="input" placeholder="2018" />
+              <input
+                name="year"
+                inputMode="numeric"
+                maxLength={4}
+                className="input"
+                placeholder="2018"
+              />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-semibold">{t('bazar.condition')}</label>
@@ -181,6 +217,8 @@ export default function NewListing() {
               name="phone"
               required
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               className="input"
               placeholder="+996 700 123 456"
               defaultValue={profile?.phone || ''}
@@ -188,7 +226,14 @@ export default function NewListing() {
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-semibold">{t('listing.whatsappLabel')}</label>
-            <input name="whatsapp" type="tel" className="input" placeholder="+996 ..." />
+            <input
+              name="whatsapp"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              className="input"
+              placeholder="+996 ..."
+            />
           </div>
         </div>
 

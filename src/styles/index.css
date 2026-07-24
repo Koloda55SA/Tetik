@@ -236,15 +236,25 @@ body.sheet-open {
    На телефоне клавиатура перекрывает часть экрана. --vvh задаёт
    ChatRoom через visualViewport, поэтому поле ввода всегда видно. */
 .chat-shell {
-  height: calc(100dvh - 11rem);
-}
-@supports (height: 1px) {
-  .chat-shell {
-    height: calc(var(--vvh, 100dvh) - 11rem);
-  }
+  /* На телефоне чат занимает весь экран: --vvh = высота области,
+     не закрытой клавиатурой. Поле ввода всегда на виду. */
+  height: var(--vvh, 100dvh);
+  padding: 0.5rem 0.5rem max(env(safe-area-inset-bottom), 0.5rem);
 }
 @media (min-width: 768px) {
   .chat-shell {
     height: calc(100dvh - 14rem);
+    padding: 0;
+  }
+}
+
+/* Пока открыта комната чата на телефоне — сама страница не прокручивается,
+   прокрутка живёт только внутри ленты сообщений. */
+@media (max-width: 767px) {
+  html.chat-page,
+  html.chat-page body {
+    overflow: hidden;
+    height: 100%;
+    position: relative;
   }
 }

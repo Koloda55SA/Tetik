@@ -44,6 +44,10 @@ export default function Home() {
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder={t('home.searchPlaceholder')}
+              type="search"
+              enterKeyHint="search"
+              autoCapitalize="off"
+              autoCorrect="off"
                 className="h-10 w-full bg-transparent text-[15px] text-neutral-900 placeholder:text-neutral-400 focus:outline-none"
               />
               <button className="btn-primary !h-10 shrink-0 !rounded-xl !px-4 text-sm md:!px-6">

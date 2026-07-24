@@ -6,6 +6,7 @@ import { createStore, myStore, uploadPhotos } from '../lib/db'
 import { CITIES } from '../lib/types'
 import { useTitle } from '../lib/useTitle'
 import Icon from '../components/Icons'
+import { useFormDraft } from '../lib/useDraft'
 
 export default function StoreNew() {
   const { t } = useTranslation()
@@ -13,6 +14,7 @@ export default function StoreNew() {
   const nav = useNavigate()
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const draft = useFormDraft('store-new')
   const [logoFile, setLogoFile] = useState<File | null>(null)
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [logoPreview, setLogoPreview] = useState<string | null>(null)
@@ -82,6 +84,7 @@ export default function StoreNew() {
       })
 
       alert(t('storeNew.created'))
+      draft.clear()
       nav(`/s/${slug}`)
     } catch (e) {
       const msg = e instanceof Error ? e.message : ''
@@ -100,7 +103,7 @@ export default function StoreNew() {
       <h1 className="section-title mb-1">{t('storeNew.title')}</h1>
       <p className="mb-5 text-sm text-muted">{t('storeNew.hint')}</p>
 
-      <form onSubmit={onSubmit} className="space-y-4">
+      <form ref={draft.ref} onSubmit={onSubmit} className="space-y-4">
         <div className="card p-5 space-y-4">
           {/* Название */}
           <div>
@@ -152,6 +155,8 @@ export default function StoreNew() {
               name="phone"
               required
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               className="input"
               placeholder="+996 700 123 456"
               defaultValue={profile?.phone || ''}
@@ -161,7 +166,7 @@ export default function StoreNew() {
           {/* WhatsApp */}
           <div>
             <label className="mb-1.5 block text-sm font-semibold">{t('listing.whatsappLabel')}</label>
-            <input name="whatsapp" type="tel" className="input" placeholder="+996 ..." />
+            <input name="whatsapp" type="tel" inputMode="tel" autoComplete="tel" className="input" placeholder="+996 ..." />
           </div>
         </div>
 

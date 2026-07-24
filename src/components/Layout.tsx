@@ -61,6 +61,10 @@ export default function Layout() {
     nav(`/bazar${q ? `?q=${encodeURIComponent(q)}` : ''}`)
   }
 
+  // Комната чата на телефоне занимает весь экран: без отступов страницы
+  // и без нижних табов — иначе клавиатура выдавливает поле ввода за экран
+  const inChatRoom = /^\/chats\/[^/]+/.test(loc.pathname)
+
   const tabs = [
     { to: '/', key: 'nav.home', icon: 'home' as const },
     { to: '/bazar', key: 'nav.bazar', icon: 'grid' as const },
@@ -73,7 +77,11 @@ export default function Layout() {
     <div className="min-h-dvh flex flex-col">
       <ScrollManager />
       {/* ======= Шапка ======= */}
-      <header className="sticky top-0 z-40 border-b border-line bg-surface">
+      <header
+        className={`sticky top-0 z-40 border-b border-line bg-surface ${
+          inChatRoom ? 'hidden md:block' : ''
+        }`}
+      >
         <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
           <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="Tetik">
             <img src="/logo-mark.svg" alt="" className="h-9 w-9" />
@@ -87,6 +95,10 @@ export default function Layout() {
               value={q}
               onChange={(e) => setQ(e.target.value)}
               placeholder={t('home.searchPlaceholder')}
+              type="search"
+              enterKeyHint="search"
+              autoCapitalize="off"
+              autoCorrect="off"
               className="h-10 w-full rounded-full border-0 bg-surface2 pl-10 pr-4 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-line"
             />
           </form>
@@ -148,7 +160,13 @@ export default function Layout() {
       </header>
 
       {/* ======= Контент ======= */}
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 md:pb-14">
+      <main
+        className={
+          inChatRoom
+            ? 'mx-auto w-full max-w-6xl flex-1 px-0 pt-0 pb-0 md:px-4 md:pb-14 md:pt-5'
+            : 'mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 md:pb-14'
+        }
+      >
         <Outlet />
       </main>
 
@@ -181,7 +199,11 @@ export default function Layout() {
       </footer>
 
       {/* ======= Нижняя навигация (mobile) ======= */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-top md:hidden">
+      <nav
+        className={`fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-top md:hidden ${
+          inChatRoom ? 'hidden' : ''
+        }`}
+      >
         <div className="grid grid-cols-5">
           {tabs.map((tab) => {
             const active = tab.to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(tab.to)

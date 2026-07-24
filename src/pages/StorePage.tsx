@@ -374,6 +374,8 @@ export default function StorePage() {
               name="phone"
               required
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
               className="input"
               placeholder={`${t('listing.phoneLabel')} *`}
               defaultValue={profile?.phone || ''}

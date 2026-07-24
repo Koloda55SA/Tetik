@@ -82,6 +82,11 @@ export default function Login() {
               type="email"
               required
               autoFocus
+              inputMode="email"
+              autoComplete="email"
+              autoCapitalize="off"
+              autoCorrect="off"
+              enterKeyHint="send"
               className="input h-12"
               placeholder={t('auth.emailPlaceholder')}
               value={email}
@@ -100,6 +105,8 @@ export default function Login() {
               required
               autoFocus
               inputMode="numeric"
+              autoComplete="one-time-code"
+              enterKeyHint="done"
               pattern="[0-9]{6,8}"
               maxLength={8}
               className="input h-14 text-center text-[26px] font-extrabold tracking-[0.3em]"

@@ -18,6 +18,7 @@ import {
 import { avatarHue, avatarInk } from '../lib/format'
 import { SLOWMODE_OPTIONS, slowmodeLabel, type ChatMessage, type ChatMeta } from '../lib/types'
 import Icon from '../components/Icons'
+import { loadTextDraft, saveTextDraft } from '../lib/useDraft'
 
 const MAX_VOICE_SEC = 60
 
@@ -54,6 +55,17 @@ export default function ChatRoom() {
   const chunksRef = useRef<Blob[]>([])
   const cancelledRef = useRef(false)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // недописанное сообщение не теряется при уходе со страницы
+  useEffect(() => {
+    if (!id) return
+    setText(loadTextDraft(`chat-${id}`))
+  }, [id])
+
+  useEffect(() => {
+    if (!id || editing) return
+    saveTextDraft(`chat-${id}`, text)
+  }, [text, id, editing])
 
   useEffect(() => {
     if (!id) return
@@ -122,24 +134,38 @@ export default function ChatRoom() {
     return () => clearInterval(iv)
   }, [msgs, slow, user?.uid, isGroup, isAdmin])
 
-  // Клавиатура на телефоне меняет видимую высоту — подстраиваемся,
-  // иначе поле ввода уезжает под клавиатуру и лента прыгает
+  // Клавиатура на телефоне: держим окно чата ровно в видимой области.
+  // Без этого Safari «уносит» страницу вверх и не видно, что печатаешь.
   useEffect(() => {
     const vv = window.visualViewport
-    if (!vv) return
+    const root = document.documentElement
+    root.classList.add('chat-page')
+
+    if (!vv) {
+      return () => root.classList.remove('chat-page')
+    }
+
+    let raf = 0
     const apply = () => {
-      document.documentElement.style.setProperty('--vvh', `${vv.height}px`)
-      // держим ленту у низа, когда клавиатура открылась
-      const box = listRef.current
-      if (box) box.scrollTop = box.scrollHeight
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        root.style.setProperty('--vvh', `${vv.height}px`)
+        // страница не должна быть прокручена: чат и так во весь экран
+        if (window.scrollY !== 0) window.scrollTo(0, 0)
+        const box = listRef.current
+        if (box) box.scrollTop = box.scrollHeight
+      })
     }
     apply()
     vv.addEventListener('resize', apply)
     vv.addEventListener('scroll', apply)
     return () => {
+      cancelAnimationFrame(raf)
       vv.removeEventListener('resize', apply)
       vv.removeEventListener('scroll', apply)
-      document.documentElement.style.removeProperty('--vvh')
+      vv.removeEventListener('scroll', apply)
+      root.style.removeProperty('--vvh')
+      root.classList.remove('chat-page')
     }
   }, [])
 
@@ -199,6 +225,7 @@ export default function ChatRoom() {
       return
     }
     setText('')
+    if (id) saveTextDraft(`chat-${id}`, '')
     const rt = replyTo
     setReplyTo(null)
     await sendMessage(
@@ -374,7 +401,7 @@ export default function ChatRoom() {
   const fmtSec = (s: number) => `0:${String(s).padStart(2, '0')}`
 
   return (
-    <div className="chat-shell max-w-2xl mx-auto flex flex-col">
+    <div className="chat-shell mx-auto flex w-full max-w-2xl flex-col">
       {/* Шапка */}
       <div className="card mb-2 p-3">
         <div className="flex items-center gap-3">

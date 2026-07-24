@@ -36,13 +36,39 @@ export async function getListing(id: string): Promise<Listing | null> {
   return (data as Listing) || null
 }
 
+/**
+ * Сжатие фото на клиенте: до 1600px по длинной стороне, JPEG ~82%.
+ * Телефонное фото 5МБ превращается в ~300КБ — бережём бесплатный 1ГБ Storage.
+ * Если формат не читается (например HEIC в некоторых браузерах) — грузим оригинал.
+ */
+async function compressImage(file: File, maxSide = 1600, quality = 0.82): Promise<Blob> {
+  if (!file.type.startsWith('image/')) return file
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
+    const w = Math.max(1, Math.round(bitmap.width * scale))
+    const h = Math.max(1, Math.round(bitmap.height * scale))
+    const canvas = document.createElement('canvas')
+    canvas.width = w
+    canvas.height = h
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, w, h)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/jpeg', quality))
+    return blob && blob.size < file.size ? blob : file
+  } catch {
+    return file
+  }
+}
+
 export async function uploadPhotos(uid: string, files: File[], bucket = 'listings'): Promise<string[]> {
   const urls: string[] = []
   for (const file of files.slice(0, 8)) {
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+    const blob = await compressImage(file)
+    const compressed = blob !== file
+    const ext = compressed ? 'jpg' : (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
     const path = `${uid}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
-    const { error } = await supabase.storage.from(bucket).upload(path, file, {
-      contentType: file.type || 'image/jpeg',
+    const { error } = await supabase.storage.from(bucket).upload(path, blob, {
+      contentType: compressed ? 'image/jpeg' : file.type || 'image/jpeg',
       upsert: false,
     })
     if (error) throw error

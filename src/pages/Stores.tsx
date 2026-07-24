@@ -5,11 +5,13 @@ import { listStores } from '../lib/db'
 import { avatarHue, avatarInk } from '../lib/format'
 import type { Store } from '../lib/types'
 import Icon from '../components/Icons'
+import { useTitle } from '../lib/useTitle'
 
 export default function Stores() {
   const { t } = useTranslation()
   const [stores, setStores] = useState<Store[]>([])
   const [loading, setLoading] = useState(true)
+  useTitle(t('store.title'))
 
   useEffect(() => {
     listStores()

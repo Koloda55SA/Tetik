@@ -6,6 +6,7 @@ import { createOrder, getStoreBySlug, listProducts } from '../lib/db'
 import { avatarHue, avatarInk } from '../lib/format'
 import { formatPrice, waLink, type Product, type Store } from '../lib/types'
 import Icon from '../components/Icons'
+import { useTitle } from '../lib/useTitle'
 
 export default function StorePage() {
   const { slug } = useParams()
@@ -17,6 +18,7 @@ export default function StorePage() {
   const [ordering, setOrdering] = useState<Product | null>(null)
   const [done, setDone] = useState(false)
   const [loading, setLoading] = useState(true)
+  useTitle(store?.name || undefined)
 
   useEffect(() => {
     if (!slug) return

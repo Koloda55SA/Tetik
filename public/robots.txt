@@ -2,3 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /profile
 Disallow: /chats
+Sitemap: https://tetik.radev.digital/sitemap.xml

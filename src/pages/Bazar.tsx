@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import ListingCard, { ListingCardSkeleton } from '../components/ListingCard'
 import Icon from '../components/Icons'
+import { useTitle } from '../lib/useTitle'
 import { fetchListings, type ListingFilters } from '../lib/db'
 import { BRANDS, CATEGORIES, CITIES, type Listing } from '../lib/types'
 
@@ -13,6 +14,7 @@ export default function Bazar() {
   const [loading, setLoading] = useState(true)
   const [showFilters, setShowFilters] = useState(false)
   const [q, setQ] = useState(sp.get('q') || '')
+  useTitle(t('bazar.title'))
 
   const filters: ListingFilters = useMemo(
     () => ({

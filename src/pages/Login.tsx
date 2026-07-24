@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
 import Icon from '../components/Icons'
+import { useTitle } from '../lib/useTitle'
 
 export default function Login() {
   const { t } = useTranslation()
@@ -12,6 +13,7 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  useTitle(t('auth.welcome'))
 
   async function onGoogle() {
     setErr('')

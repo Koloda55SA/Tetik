@@ -5,6 +5,7 @@ import { useAuth } from '../lib/auth'
 import { ensureDmChat, getListing } from '../lib/db'
 import { CATEGORIES, formatPrice, waLink, type Listing } from '../lib/types'
 import { avatarHue, avatarInk, timeAgo } from '../lib/format'
+import { useTitle } from '../lib/useTitle'
 import Icon from '../components/Icons'
 
 export default function ListingPage() {
@@ -14,6 +15,19 @@ export default function ListingPage() {
   const nav = useNavigate()
   const [l, setL] = useState<Listing | null>(null)
   const [photo, setPhoto] = useState(0)
+
+  useTitle(l ? `${l.title} · ${formatPrice(l.price)} · ${l.city}` : undefined)
+
+  function share() {
+    if (!l) return
+    const url = window.location.href
+    const text = `${l.title} — ${formatPrice(l.price)} · Tetik`
+    if (navigator.share) {
+      navigator.share({ title: text, url }).catch(() => {})
+    } else {
+      window.open(`https://wa.me/?text=${encodeURIComponent(`${text}\n${url}`)}`, '_blank', 'noopener')
+    }
+  }
 
   useEffect(() => {
     if (id) getListing(id).then(setL).catch(() => {})
@@ -180,6 +194,12 @@ export default function ListingPage() {
                   {t('listing.write')}
                 </button>
               )}
+
+              {/* Поделиться */}
+              <button onClick={share} className="btn-ghost w-full">
+                <Icon name="whatsapp" size={17} className="text-[#25D366]" />
+                Поделиться
+              </button>
 
               {/* Жалоба */}
               <div className="pt-1 text-center">

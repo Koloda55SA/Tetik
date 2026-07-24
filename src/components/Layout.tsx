@@ -23,7 +23,7 @@ export default function Layout() {
   return (
     <div className="min-h-dvh flex flex-col">
       {/* Верхняя панель */}
-      <header className="sticky top-0 z-40 bg-surface/95 backdrop-blur border-b border-line">
+      <header className="sticky top-0 z-40 bg-surface backdrop-blur border-b border-line">
         <div className="mx-auto max-w-6xl px-4 h-14 flex items-center gap-4">
           <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="Tetik">
             <img src="/logo-mark.svg" alt="" className="h-8 w-8" />

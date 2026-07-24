@@ -44,7 +44,7 @@ export default function Chats() {
         <div className="space-y-2">
           {groups.map((c) => (
             <Link key={c.id} to={`/chats/${c.id}`} className="card p-3.5 flex items-center gap-3 hover:border-accent transition-colors">
-              <div className="w-11 h-11 rounded-full bg-accent/15 text-accent flex items-center justify-center font-bold shrink-0">
+              <div className="w-11 h-11 rounded-full bg-surface2 text-accent flex items-center justify-center font-bold shrink-0">
                 {c.title.slice(0, 1)}
               </div>
               <div className="min-w-0 flex-1">

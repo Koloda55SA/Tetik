@@ -4,10 +4,8 @@
  * Держит Supabase-проект активным (бесплатный тариф засыпает после 7 дней
  * без обращений) и страхует автомодерацию.
  *
- * Cron каждые 6 часов:
- *   1. лёгкий запрос к REST API (активность для анти-паузы)
- *   2. вызов RPC run_automod() — дубль pg_cron на случай его отключения
- *      (функция идемпотентна, двойной запуск безопасен)
+ * Cron каждые 6 часов: лёгкий запрос к REST API — активность для анти-паузы.
+ * Автомодерация крутится внутри БД (pg_cron → run_automod, доступ только у сервиса).
  *
  * Vars: SUPABASE_URL, SUPABASE_ANON_KEY (anon-ключ публичный, не секрет)
  */
@@ -18,16 +16,7 @@ export default {
       apikey: env.SUPABASE_ANON_KEY,
       Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
     }
-    ctx.waitUntil(
-      Promise.allSettled([
-        fetch(`${env.SUPABASE_URL}/rest/v1/listings?select=id&limit=1`, { headers }),
-        fetch(`${env.SUPABASE_URL}/rest/v1/rpc/run_automod`, {
-          method: 'POST',
-          headers: { ...headers, 'Content-Type': 'application/json' },
-          body: '{}',
-        }),
-      ]),
-    )
+    ctx.waitUntil(fetch(`${env.SUPABASE_URL}/rest/v1/listings?select=id&limit=1`, { headers }))
   },
 
   async fetch() {

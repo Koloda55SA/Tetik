@@ -14,6 +14,7 @@ interface AuthCtx {
   loading: boolean
   sendCode: (email: string) => Promise<void>
   verifyCode: (email: string, code: string) => Promise<void>
+  signInWithGoogle: () => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
 }
@@ -22,6 +23,19 @@ const Ctx = createContext<AuthCtx>(null as unknown as AuthCtx)
 
 export function useAuth() {
   return useContext(Ctx)
+}
+
+/** Создаёт строку профиля при первом входе (в т.ч. после Google-OAuth) */
+async function ensureProfile(uid: string, email: string, name?: string) {
+  const { data } = await supabase.from('profiles').select('id').eq('id', uid).maybeSingle()
+  if (!data) {
+    await supabase.from('profiles').insert({
+      id: uid,
+      email,
+      displayName: name || email.split('@')[0],
+      role: 'user',
+    })
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -44,47 +58,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(u)
       loadProfile(u?.uid || null).finally(() => setLoading(false))
     })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (event, session) => {
       const u = session?.user ? { uid: session.user.id, email: session.user.email || '' } : null
       setUser(u)
+      // после OAuth-редиректа гарантируем профиль
+      if (event === 'SIGNED_IN' && session?.user) {
+        await ensureProfile(
+          session.user.id,
+          session.user.email || '',
+          (session.user.user_metadata?.full_name as string) || undefined,
+        ).catch(() => {})
+      }
       loadProfile(u?.uid || null)
     })
     return () => sub.subscription.unsubscribe()
   }, [])
 
-  /** Создаёт строку профиля при первом входе */
-  async function ensureProfile(uid: string, email: string) {
-    const { data } = await supabase.from('profiles').select('id').eq('id', uid).maybeSingle()
-    if (!data) {
-      await supabase.from('profiles').insert({
-        id: uid,
-        email,
-        displayName: email.split('@')[0],
-        role: 'user',
-      })
-    }
-  }
-
   const value: AuthCtx = {
     user,
     profile,
     loading,
+    /**
+     * Отправка кода: сначала своя edge-функция (Brevo, без лимитов встроенной почты),
+     * при её недоступности/отсутствии ключа — встроенная почта Supabase.
+     */
     async sendCode(email) {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim().toLowerCase(),
-        options: { shouldCreateUser: true },
-      })
-      if (error) throw new Error(error.message)
+      const clean = email.trim().toLowerCase()
+      let fallback = false
+      try {
+        const { data, error } = await supabase.functions.invoke('otp-mailer', { body: { email: clean } })
+        if (error) fallback = true
+        else if (data?.error === 'too_often' || data?.error === 'daily_limit') throw new Error('too_often')
+        else if (data?.error) fallback = true
+        else if (data?.fallback) fallback = true
+      } catch (e) {
+        if ((e as Error).message === 'too_often') throw e
+        fallback = true
+      }
+      if (fallback) {
+        const { error } = await supabase.auth.signInWithOtp({
+          email: clean,
+          options: { shouldCreateUser: true },
+        })
+        if (error) throw new Error(error.message)
+      }
     },
     async verifyCode(email, code) {
+      const clean = email.trim().toLowerCase()
       const { data, error } = await supabase.auth.verifyOtp({
-        email: email.trim().toLowerCase(),
+        email: clean,
         token: code.trim(),
         type: 'email',
       })
       if (error || !data.user) throw new Error(error?.message || 'verify failed')
-      await ensureProfile(data.user.id, email.trim().toLowerCase())
+      await ensureProfile(data.user.id, clean)
       await loadProfile(data.user.id)
+    },
+    async signInWithGoogle() {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      })
+      if (error) throw new Error(error.message)
     },
     async signOut() {
       await supabase.auth.signOut()

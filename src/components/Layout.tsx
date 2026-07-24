@@ -1,36 +1,56 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useState, type FormEvent } from 'react'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
 import { setLang } from '../lib/i18n'
-
-const tabs = [
-  { to: '/', key: 'nav.home', icon: '⌂' },
-  { to: '/bazar', key: 'nav.bazar', icon: '⚙' },
-  { to: '/new', key: 'nav.sell', icon: '+', accent: true },
-  { to: '/chats', key: 'nav.chats', icon: '✉' },
-  { to: '/stores', key: 'nav.stores', icon: '★' },
-]
+import Icon from './Icons'
 
 export default function Layout() {
   const { t, i18n } = useTranslation()
   const { user } = useAuth()
   const nav = useNavigate()
+  const loc = useLocation()
+  const [q, setQ] = useState('')
 
   function toggleLang() {
     setLang(i18n.language === 'ru' ? 'ky' : 'ru')
   }
 
+  function onSearch(e: FormEvent) {
+    e.preventDefault()
+    nav(`/bazar${q ? `?q=${encodeURIComponent(q)}` : ''}`)
+  }
+
+  const tabs = [
+    { to: '/', key: 'nav.home', icon: 'home' as const },
+    { to: '/bazar', key: 'nav.bazar', icon: 'grid' as const },
+    { to: '/new', key: 'nav.sell', icon: 'plus' as const, accent: true },
+    { to: '/chats', key: 'nav.chats', icon: 'chat' as const },
+    { to: '/stores', key: 'nav.stores', icon: 'store' as const },
+  ]
+
   return (
     <div className="min-h-dvh flex flex-col">
-      {/* Верхняя панель */}
-      <header className="sticky top-0 z-40 bg-surface backdrop-blur border-b border-line">
-        <div className="mx-auto max-w-6xl px-4 h-14 flex items-center gap-4">
-          <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="Tetik">
-            <img src="/logo-mark.svg" alt="" className="h-8 w-8" />
-            <span className="font-display font-bold text-lg tracking-tight">TETIK</span>
+      {/* ======= Шапка ======= */}
+      <header className="sticky top-0 z-40 border-b border-line bg-surface">
+        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4">
+          <Link to="/" className="flex shrink-0 items-center gap-2.5" aria-label="Tetik">
+            <img src="/logo-mark.svg" alt="" className="h-9 w-9" />
+            <span className="font-display text-[17px] font-bold tracking-wide">TETIK</span>
           </Link>
 
-          <nav className="hidden md:flex items-center gap-1 ml-4">
+          {/* Поиск в шапке (desktop) */}
+          <form onSubmit={onSearch} className="relative mx-4 hidden max-w-md flex-1 md:block">
+            <Icon name="search" size={18} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder={t('home.searchPlaceholder')}
+              className="h-10 w-full rounded-full border-0 bg-surface2 pl-10 pr-4 text-sm text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-line"
+            />
+          </form>
+
+          <nav className="hidden items-center gap-0.5 lg:flex">
             {[
               { to: '/bazar', key: 'nav.bazar' },
               { to: '/chats', key: 'nav.chats' },
@@ -40,7 +60,9 @@ export default function Layout() {
                 key={l.to}
                 to={l.to}
                 className={({ isActive }) =>
-                  `px-3 py-1.5 rounded-btn text-sm font-semibold ${isActive ? 'bg-surface2 text-ink' : 'text-muted hover:text-ink'}`
+                  `rounded-full px-3.5 py-2 text-sm font-semibold transition-colors ${
+                    isActive ? 'bg-surface2 text-ink' : 'text-muted hover:text-ink'
+                  }`
                 }
               >
                 {t(l.key)}
@@ -48,58 +70,87 @@ export default function Layout() {
             ))}
           </nav>
 
-          <div className="flex-1" />
+          <div className="flex-1 md:hidden" />
+          <div className="hidden flex-1 lg:hidden md:block" />
 
-          <button onClick={toggleLang} className="chip text-xs font-bold uppercase" title={t('profile.lang')}>
-            {i18n.language === 'ru' ? 'KY' : 'RU'}
+          <button onClick={toggleLang} className="icon-btn text-xs font-extrabold" title={t('profile.lang')}>
+            {i18n.language === 'ru' ? 'KG' : 'RU'}
           </button>
 
-          <Link to="/new" className="btn-primary hidden md:inline-flex text-sm">
-            + {t('nav.sell')}
+          <Link to="/new" className="btn-primary hidden !h-10 text-sm md:inline-flex">
+            <Icon name="plus" size={17} />
+            {t('nav.sell')}
           </Link>
 
           {user ? (
-            <button onClick={() => nav('/profile')} className="btn-ghost text-sm">
-              {t('nav.profile')}
+            <button onClick={() => nav('/profile')} className="icon-btn" aria-label={t('nav.profile')}>
+              <Icon name="user" size={21} />
             </button>
           ) : (
-            <Link to="/login" className="btn-ghost text-sm">
+            <Link to="/login" className="btn-outline !h-10 text-sm">
               {t('auth.login')}
             </Link>
           )}
         </div>
       </header>
 
-      {/* Контент */}
-      <main className="flex-1 mx-auto w-full max-w-6xl px-4 py-4 pb-24 md:pb-8">
+      {/* ======= Контент ======= */}
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 md:pb-14">
         <Outlet />
       </main>
 
-      {/* Футер (desktop) */}
-      <footer className="hidden md:block border-t border-line py-6 text-center text-sm text-muted">
-        <p>{t('common.footer')}</p>
-        <p className="mt-1">{t('common.byStudio')}</p>
+      {/* ======= Футер ======= */}
+      <footer className="hidden bg-footer text-white/80 md:block">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 md:grid-cols-3">
+          <div>
+            <div className="flex items-center gap-2.5">
+              <img src="/logo-mark.svg" alt="" className="h-9 w-9" />
+              <span className="font-display text-lg font-bold tracking-wide text-white">TETIK</span>
+            </div>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/60">{t('common.footer')}</p>
+          </div>
+          <div className="text-sm">
+            <p className="mb-3 font-bold uppercase tracking-wider text-white/40">{t('nav.bazar')}</p>
+            <div className="flex flex-col gap-2">
+              <Link to="/bazar" className="hover:text-white">{t('home.allListings')}</Link>
+              <Link to="/new" className="hover:text-white">{t('nav.sell')}</Link>
+              <Link to="/chats" className="hover:text-white">{t('nav.chats')}</Link>
+              <Link to="/stores" className="hover:text-white">{t('nav.stores')}</Link>
+            </div>
+          </div>
+          <div className="text-sm">
+            <p className="mb-3 font-bold uppercase tracking-wider text-white/40">Tetik</p>
+            <p className="text-white/60">{t('common.byStudio')}</p>
+            <p className="mt-2 text-white/40">© {new Date().getFullYear()} Tetik · Кыргызстан</p>
+          </div>
+        </div>
       </footer>
 
-      {/* Нижние табы (mobile) */}
-      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-surface border-t border-line pb-[env(safe-area-inset-bottom)]">
+      {/* ======= Нижняя навигация (mobile) ======= */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] shadow-top md:hidden">
         <div className="grid grid-cols-5">
-          {tabs.map((tab) => (
-            <NavLink
-              key={tab.to}
-              to={tab.to}
-              className={({ isActive }) =>
-                `flex flex-col items-center py-2 text-[11px] font-semibold ${
-                  tab.accent ? 'text-accent' : isActive ? 'text-ink' : 'text-muted'
-                }`
-              }
-            >
-              <span className={`text-lg leading-none mb-0.5 ${tab.accent ? 'bg-accent text-accent-fg rounded-full w-7 h-7 flex items-center justify-center' : ''}`}>
-                {tab.icon}
-              </span>
-              {t(tab.key)}
-            </NavLink>
-          ))}
+          {tabs.map((tab) => {
+            const active = tab.to === '/' ? loc.pathname === '/' : loc.pathname.startsWith(tab.to)
+            if (tab.accent) {
+              return (
+                <NavLink key={tab.to} to={tab.to} className="flex flex-col items-center justify-center py-1.5">
+                  <span className="grid h-11 w-11 -translate-y-3 place-items-center rounded-full bg-accent text-accent-fg shadow-lift">
+                    <Icon name="plus" size={24} />
+                  </span>
+                </NavLink>
+              )
+            }
+            return (
+              <NavLink
+                key={tab.to}
+                to={tab.to}
+                className={`flex flex-col items-center gap-1 py-2.5 text-[10px] font-bold ${active ? 'text-ink' : 'text-muted'}`}
+              >
+                <Icon name={tab.icon} size={22} strokeWidth={active ? 2.4 : 2} />
+                {t(tab.key)}
+              </NavLink>
+            )
+          })}
         </div>
       </nav>
     </div>

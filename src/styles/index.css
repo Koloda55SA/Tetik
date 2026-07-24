@@ -3,76 +3,151 @@
 @tailwind utilities;
 
 /* ============================================================
-   Tetik design tokens — базовая палитра (индустриальный графит
-   + сигнальный оранжевый). Значения синхронизируются с
-   tetik-assets/brand/tokens.css от бренд-агента.
+   Tetik design tokens v2 — «дорогой маркетплейс»
+   Светлая тема — основная. Оранжевый — только ключевые действия.
    ============================================================ */
 :root {
-  --c-bg: #f5f5f4;
+  --c-bg: #f5f4f2;
   --c-surface: #ffffff;
-  --c-surface2: #ececea;
-  --c-border: #d4d2cf;
-  --c-text: #1a1917;
-  --c-text-muted: #6b6960;
-  --c-accent: #e85c0d;
-  --c-accent-hover: #c44b08;
+  --c-surface2: #efeeeb;
+  --c-border: #e7e5e1;
+  --c-text: #191817;
+  --c-text-muted: #7a766f;
+  --c-accent: #e8590c;
+  --c-accent-hover: #d14e08;
   --c-accent-fg: #ffffff;
-  --c-success: #2a7d4f;
-  --c-danger: #c0392b;
-  --c-warning: #d97706;
+  --c-accent-soft: #fdeee3;
+  --c-accent-ring: rgba(232, 89, 12, 0.14);
+  --c-success: #178a50;
+  --c-success-soft: #e3f4ea;
+  --c-danger: #d23b2e;
+  --c-warning: #b97d0c;
+  --c-footer: #1b1a18;
 
   --r-sm: 10px;
-  --r-md: 16px;
-  --r-lg: 24px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-xl: 28px;
+
+  --shadow-card: 0 1px 2px rgba(25, 24, 23, 0.04), 0 4px 16px rgba(25, 24, 23, 0.06);
+  --shadow-lift: 0 2px 4px rgba(25, 24, 23, 0.05), 0 14px 36px rgba(25, 24, 23, 0.12);
+  --shadow-top: 0 -6px 24px rgba(25, 24, 23, 0.08);
 
   --font-display: 'Unbounded', system-ui, sans-serif;
   --font-ui: 'Onest', system-ui, sans-serif;
 }
 
 [data-theme='dark'] {
-  --c-bg: #111110;
-  --c-surface: #1c1c1a;
-  --c-surface2: #2a2a27;
-  --c-border: #3a3a36;
-  --c-text: #f0efe9;
-  --c-text-muted: #9a9890;
-  --c-accent: #ff6b1a;
-  --c-accent-hover: #ff8040;
-  --c-accent-fg: #111110;
-  --c-success: #3db872;
-  --c-danger: #e05a4a;
-  --c-warning: #f59e0b;
+  --c-bg: #131211;
+  --c-surface: #1c1b19;
+  --c-surface2: #262421;
+  --c-border: #343129;
+  --c-text: #f2f0ec;
+  --c-text-muted: #a19c93;
+  --c-accent: #ff7a2f;
+  --c-accent-hover: #ff8d4d;
+  --c-accent-fg: #1b1207;
+  --c-accent-soft: #34210f;
+  --c-accent-ring: rgba(255, 122, 47, 0.18);
+  --c-success: #3dbb77;
+  --c-success-soft: #16301f;
+  --c-danger: #ef6a5e;
+  --c-warning: #e0a52e;
+  --c-footer: #0e0d0c;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.25), 0 4px 18px rgba(0, 0, 0, 0.3);
+  --shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.45);
+  --shadow-top: 0 -6px 24px rgba(0, 0, 0, 0.4);
 }
 
 html {
   -webkit-tap-highlight-color: transparent;
+  scroll-behavior: smooth;
 }
 
 body {
   @apply bg-bg text-ink font-ui antialiased;
+  font-feature-settings: 'ss01';
 }
 
-/* Utility-компоненты UI-кита */
+::selection {
+  background: var(--c-accent);
+  color: #fff;
+}
+
+/* тонкий скроллбар для горизонтальных лент */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
 @layer components {
+  /* ---- Кнопки ---- */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-btn px-4 py-2.5 font-semibold transition-colors select-none cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex h-11 items-center justify-center gap-2 rounded-[12px] px-5 text-[15px] font-bold transition-all select-none cursor-pointer active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
   }
   .btn-primary {
     @apply btn bg-accent text-accent-fg hover:bg-accent-hover;
+    box-shadow: 0 1px 2px rgba(232, 89, 12, 0.3), 0 4px 14px rgba(232, 89, 12, 0.25);
   }
   .btn-ghost {
     @apply btn bg-surface2 text-ink hover:bg-line;
   }
+  .btn-outline {
+    @apply btn border border-line bg-surface text-ink hover:bg-surface2;
+  }
+  .btn-dark {
+    @apply btn bg-ink text-bg hover:opacity-90;
+  }
+  .icon-btn {
+    @apply inline-grid h-10 w-10 shrink-0 place-items-center rounded-full text-ink transition-colors hover:bg-surface2 cursor-pointer;
+  }
+
+  /* ---- Поверхности ---- */
   .card {
-    @apply bg-surface rounded-card border border-line overflow-hidden;
+    @apply rounded-2xl bg-surface;
+    box-shadow: var(--shadow-card);
   }
+  .card-hover {
+    @apply transition-all duration-200;
+  }
+  .card-hover:hover {
+    box-shadow: var(--shadow-lift);
+    transform: translateY(-2px);
+  }
+
+  /* ---- Поля ---- */
   .input {
-    @apply w-full rounded-btn border border-line bg-surface px-3.5 py-2.5 text-ink placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent;
+    @apply h-11 w-full rounded-[12px] border border-line bg-surface px-4 text-[15px] text-ink placeholder:text-muted transition-shadow;
   }
+  .input:focus {
+    outline: none;
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 4px var(--c-accent-ring);
+  }
+  textarea.input { @apply h-auto py-3; }
+  select.input { @apply appearance-none pr-9 bg-no-repeat cursor-pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%237a766f' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-position: right 12px center; }
+
+  /* ---- Чипы ---- */
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full bg-surface2 px-3 py-1 text-sm text-ink whitespace-nowrap;
+    @apply inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-ink whitespace-nowrap cursor-pointer transition-colors hover:border-muted;
   }
   .chip-active {
-    @apply bg-accent text-accent-fg;
+    @apply border-ink bg-ink text-bg hover:border-ink;
+  }
+
+  /* ---- Бейджи ---- */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-bold leading-none;
+  }
+  .badge-new { @apply badge text-white; background: rgba(23, 24, 23, 0.62); backdrop-filter: blur(6px); }
+  .badge-verified { @apply badge; background: var(--c-accent-soft); color: var(--c-accent); }
+  .badge-success { @apply badge; background: var(--c-success-soft); color: var(--c-success); }
+
+  /* ---- Скелетоны ---- */
+  .skeleton {
+    @apply animate-pulse rounded-2xl bg-surface2;
+  }
+
+  .section-title {
+    @apply text-xl font-extrabold tracking-tight md:text-2xl;
   }
 }

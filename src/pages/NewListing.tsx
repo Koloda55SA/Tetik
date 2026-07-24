@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
 import { createListing, uploadPhotos } from '../lib/db'
 import { BRANDS, CATEGORIES, CITIES, type CategorySlug, type Condition } from '../lib/types'
+import Icon from '../components/Icons'
 
 export default function NewListing() {
   const { t, i18n } = useTranslation()
@@ -15,9 +16,12 @@ export default function NewListing() {
 
   if (!user) {
     return (
-      <div className="card p-8 text-center">
-        <p className="text-muted mb-4">{t('listing.needAuth')}</p>
-        <Link to="/login" className="btn-primary">{t('auth.login')}</Link>
+      <div className="card p-10 text-center">
+        <Icon name="plus" size={36} strokeWidth={1.5} className="mx-auto text-muted" />
+        <p className="mt-3 text-sm text-muted">{t('listing.needAuth')}</p>
+        <Link to="/login" className="btn-primary mt-5 inline-flex">
+          {t('auth.login')}
+        </Link>
       </div>
     )
   }
@@ -55,92 +59,142 @@ export default function NewListing() {
     }
   }
 
+  function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    setFiles(Array.from(e.target.files || []).slice(0, 8))
+  }
+
   return (
     <div className="max-w-xl mx-auto">
-      <h1 className="font-display font-bold text-xl mb-4">{t('listing.create')}</h1>
-      <form onSubmit={onSubmit} className="card p-4 space-y-3">
-        <div>
-          <label className="text-sm font-semibold">{t('listing.titleLabel')}</label>
-          <input name="title" required minLength={5} maxLength={120} className="input mt-1" placeholder={t('listing.titlePlaceholder')} />
+      <h1 className="section-title mb-5">{t('listing.create')}</h1>
+
+      <form onSubmit={onSubmit} className="space-y-4">
+        {/* Фото */}
+        <div className="card p-5 space-y-4">
+          <p className="text-sm font-semibold">{t('listing.photos')}</p>
+          <div className="grid grid-cols-3 gap-2">
+            {files.map((f, i) => (
+              <div key={i} className="relative aspect-square overflow-hidden rounded-xl">
+                <img src={URL.createObjectURL(f)} alt="" className="h-full w-full object-cover" />
+              </div>
+            ))}
+            {files.length < 8 && (
+              <label className="flex aspect-square cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-line transition-colors hover:border-muted">
+                <Icon name="camera" size={22} strokeWidth={1.5} className="text-muted" />
+                <span className="text-xs text-muted">Добавить</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  onChange={onFiles}
+                />
+              </label>
+            )}
+          </div>
         </div>
 
-        <div>
-          <label className="text-sm font-semibold">{t('listing.photos')}</label>
-          <input
-            type="file" accept="image/*" multiple
-            className="input mt-1"
-            onChange={(e) => setFiles(Array.from(e.target.files || []).slice(0, 8))}
-          />
-          {files.length > 0 && (
-            <div className="flex gap-2 mt-2 overflow-x-auto">
-              {files.map((f, i) => (
-                <img key={i} src={URL.createObjectURL(f)} alt="" className="w-16 h-16 object-cover rounded-btn" />
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
+        {/* Основное */}
+        <div className="card p-5 space-y-4">
           <div>
-            <label className="text-sm font-semibold">{t('bazar.category')}</label>
-            <select name="category" required className="input mt-1">
+            <label className="mb-1.5 block text-sm font-semibold">{t('listing.titleLabel')}</label>
+            <input
+              name="title"
+              required
+              minLength={5}
+              maxLength={120}
+              className="input"
+              placeholder={t('listing.titlePlaceholder')}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold">{t('bazar.category')}</label>
+            <select name="category" required className="input">
               {CATEGORIES.map((c) => (
-                <option key={c.slug} value={c.slug}>{i18n.language === 'ky' ? c.ky : c.ru}</option>
+                <option key={c.slug} value={c.slug}>
+                  {i18n.language === 'ky' ? c.ky : c.ru}
+                </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="text-sm font-semibold">{t('listing.priceLabel')}</label>
-            <input name="price" type="number" required min={0} className="input mt-1" placeholder="5000" />
+            <label className="mb-1.5 block text-sm font-semibold">{t('listing.priceLabel')}</label>
+            <input name="price" type="number" required min={0} className="input" placeholder="5000" />
+          </div>
+        </div>
+
+        {/* Детали */}
+        <div className="card p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">{t('bazar.brand')}</label>
+              <select name="brand" className="input">
+                {BRANDS.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">{t('listing.modelLabel')}</label>
+              <input
+                name="model"
+                className="input"
+                placeholder={t('listing.modelPlaceholder')}
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">{t('listing.yearLabel')}</label>
+              <input name="year" className="input" placeholder="2018" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-semibold">{t('bazar.condition')}</label>
+              <select name="condition" className="input">
+                <option value="used">{t('bazar.used')}</option>
+                <option value="new">{t('bazar.new')}</option>
+              </select>
+            </div>
           </div>
           <div>
-            <label className="text-sm font-semibold">{t('bazar.brand')}</label>
-            <select name="brand" className="input mt-1">
-              {BRANDS.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-semibold">{t('listing.modelLabel')}</label>
-            <input name="model" className="input mt-1" placeholder={t('listing.modelPlaceholder')} />
-          </div>
-          <div>
-            <label className="text-sm font-semibold">{t('bazar.condition')}</label>
-            <select name="condition" className="input mt-1">
-              <option value="used">{t('bazar.used')}</option>
-              <option value="new">{t('bazar.new')}</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-sm font-semibold">{t('bazar.city')}</label>
-            <select name="city" className="input mt-1">
+            <label className="mb-1.5 block text-sm font-semibold">{t('bazar.city')}</label>
+            <select name="city" className="input">
               {CITIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
               ))}
             </select>
           </div>
-        </div>
-
-        <div>
-          <label className="text-sm font-semibold">{t('listing.descLabel')}</label>
-          <textarea name="desc" rows={4} maxLength={2000} className="input mt-1" placeholder={t('listing.descPlaceholder')} />
-        </div>
-
-        <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-sm font-semibold">{t('listing.phoneLabel')}</label>
-            <input name="phone" required type="tel" className="input mt-1" placeholder="+996 700 123 456" defaultValue={profile?.phone || ''} />
+            <label className="mb-1.5 block text-sm font-semibold">{t('listing.descLabel')}</label>
+            <textarea
+              name="desc"
+              rows={4}
+              maxLength={2000}
+              className="input"
+              placeholder={t('listing.descPlaceholder')}
+            />
+          </div>
+        </div>
+
+        {/* Контакты */}
+        <div className="card p-5 space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-semibold">{t('listing.phoneLabel')}</label>
+            <input
+              name="phone"
+              required
+              type="tel"
+              className="input"
+              placeholder="+996 700 123 456"
+              defaultValue={profile?.phone || ''}
+            />
           </div>
           <div>
-            <label className="text-sm font-semibold">{t('listing.whatsappLabel')}</label>
-            <input name="whatsapp" type="tel" className="input mt-1" placeholder="+996 ..." />
+            <label className="mb-1.5 block text-sm font-semibold">{t('listing.whatsappLabel')}</label>
+            <input name="whatsapp" type="tel" className="input" placeholder="+996 ..." />
           </div>
         </div>
 
         {err && <p className="text-sm text-danger">{err}</p>}
 
-        <button disabled={busy} className="btn-primary w-full">
+        <button disabled={busy} className="btn-primary h-12 w-full">
           {busy ? t('listing.publishing') : t('listing.publish')}
         </button>
       </form>

@@ -1,5 +1,8 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+
+/** Версия сборки (меняет хэш бандла — сброс кэша ассетов) */
+console.info('Tetik build 2026-07-24.2')
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './lib/auth'

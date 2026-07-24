@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
 import { bumpListing, myListings, setListingStatus, deleteListing, updateProfile } from '../lib/db'
 import { setLang } from '../lib/i18n'
-import { formatPrice, type Listing } from '../lib/types'
+import { avatarHue, avatarInk } from '../lib/format'
+import { formatPrice, CITIES, type Listing } from '../lib/types'
+import Icon from '../components/Icons'
 
 export default function Profile() {
   const { t, i18n } = useTranslation()
@@ -19,6 +21,12 @@ export default function Profile() {
   }, [user])
 
   if (!user) return null
+
+  const email = profile?.email || user.email || ''
+  const displayName = profile?.displayName || 'Пользователь'
+  const avatarBg = avatarHue(email)
+  const avatarColor = avatarInk(email)
+  const isDark = document.documentElement.dataset.theme === 'dark'
 
   async function saveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -41,64 +49,193 @@ export default function Profile() {
     localStorage.setItem('tetik-theme', next || 'light')
   }
 
+  async function doLogout() {
+    await signOut()
+    nav('/')
+  }
+
+  async function bump(id: string) {
+    await bumpListing(id)
+    setItems(await myListings(user!.uid))
+  }
+
+  async function markSold(id: string) {
+    await setListingStatus(id, 'sold')
+    setItems(await myListings(user!.uid))
+  }
+
+  async function doDelete(id: string) {
+    if (!confirm('Удалить объявление?')) return
+    await deleteListing(id)
+    setItems(await myListings(user!.uid))
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-5">
+      {/* Шапка */}
       <div className="flex items-center justify-between">
-        <h1 className="font-display font-bold text-xl">{t('profile.title')}</h1>
-        <button className="btn-ghost text-sm" onClick={async () => { await signOut(); nav('/') }}>
-          {t('auth.logout')}
+        <div className="flex items-center gap-3">
+          <div
+            className="grid h-14 w-14 place-items-center rounded-full text-xl font-bold"
+            style={{ background: avatarBg, color: avatarColor }}
+          >
+            {displayName.slice(0, 1).toUpperCase()}
+          </div>
+          <div>
+            <p className="text-xl font-extrabold">{displayName}</p>
+            <p className="text-sm text-muted">{email}</p>
+          </div>
+        </div>
+        <button onClick={doLogout} className="icon-btn" title={t('auth.logout')}>
+          <Icon name="logout" size={20} />
         </button>
       </div>
 
-      <form onSubmit={saveProfile} className="card p-4 space-y-3">
-        <p className="text-sm text-muted">{profile?.email}</p>
+      {/* Настройки */}
+      <form onSubmit={saveProfile} className="card p-5 space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-sm font-semibold">{t('profile.name')}</label>
-            <input name="name" className="input mt-1" defaultValue={profile?.displayName || ''} />
+            <label className="mb-1.5 block text-sm font-semibold">{t('profile.name')}</label>
+            <input
+              name="name"
+              className="input"
+              defaultValue={profile?.displayName || ''}
+            />
           </div>
           <div>
-            <label className="text-sm font-semibold">{t('profile.phone')}</label>
-            <input name="phone" type="tel" className="input mt-1" defaultValue={profile?.phone || ''} placeholder="+996 ..." />
+            <label className="mb-1.5 block text-sm font-semibold">{t('profile.phone')}</label>
+            <input
+              name="phone"
+              type="tel"
+              className="input"
+              defaultValue={profile?.phone || ''}
+              placeholder="+996 ..."
+            />
           </div>
         </div>
         <div>
-          <label className="text-sm font-semibold">{t('profile.city')}</label>
-          <input name="city" className="input mt-1" defaultValue={profile?.city || ''} />
+          <label className="mb-1.5 block text-sm font-semibold">{t('profile.city')}</label>
+          <select name="city" className="input" defaultValue={profile?.city || ''}>
+            <option value="">{t('bazar.all')}</option>
+            {CITIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="btn-primary">{saved ? t('profile.saved') + ' ✓' : t('profile.save')}</button>
-          <button type="button" className="chip" onClick={() => setLang(i18n.language === 'ru' ? 'ky' : 'ru')}>
-            {t('profile.lang')}: {i18n.language.toUpperCase()}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button className="btn-primary">
+            {saved ? (
+              <><Icon name="check" size={16} />{t('profile.saved')}</>
+            ) : (
+              t('profile.save')
+            )}
           </button>
+
+          {/* Язык */}
+          <button
+            type="button"
+            className="chip"
+            onClick={() => setLang(i18n.language === 'ru' ? 'ky' : 'ru')}
+          >
+            <Icon name="globe" size={15} />
+            {i18n.language.toUpperCase()}
+          </button>
+
+          {/* Тема */}
           <button type="button" className="chip" onClick={toggleTheme}>
+            <Icon name={isDark ? 'sun' : 'moon'} size={15} />
             {t('profile.theme')}
           </button>
         </div>
       </form>
 
+      {/* Мои объявления */}
       <section>
-        <h2 className="font-bold mb-3">{t('profile.myListings')} ({items.length})</h2>
-        <div className="space-y-2">
-          {items.map((l) => (
-            <div key={l.id} className="card p-3 flex items-center gap-3">
-              <img src={l.photos[0]} alt="" className="w-14 h-14 rounded-btn object-cover bg-surface2" />
-              <div className="flex-1 min-w-0">
-                <Link to={`/l/${l.id}`} className="text-sm font-semibold line-clamp-1">{l.title}</Link>
-                <p className="text-xs text-muted">{formatPrice(l.price)} · {l.status}</p>
+        <h2 className="section-title mb-4">
+          {t('profile.myListings')}
+          {items.length > 0 && (
+            <span className="ml-2 text-base font-semibold text-muted">({items.length})</span>
+          )}
+        </h2>
+
+        {items.length === 0 ? (
+          <div className="card p-10 text-center">
+            <Icon name="tag" size={36} strokeWidth={1.5} className="mx-auto text-muted" />
+            <p className="mt-3 text-sm text-muted">{t('bazar.empty')}</p>
+            <Link to="/new" className="btn-primary mt-5 inline-flex">
+              {t('nav.sell')}
+            </Link>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {items.map((l) => (
+              <div key={l.id} className="card p-3 flex items-center gap-3">
+                {/* Фото */}
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-surface2">
+                  {l.photos[0] ? (
+                    <img src={l.photos[0]} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="grid h-full w-full place-items-center text-muted">
+                      <Icon name="camera" size={18} strokeWidth={1.5} />
+                    </div>
+                  )}
+                </div>
+
+                {/* Инфо */}
+                <div className="min-w-0 flex-1">
+                  <Link
+                    to={`/l/${l.id}`}
+                    className="line-clamp-1 font-semibold hover:text-accent transition-colors"
+                  >
+                    {l.title}
+                  </Link>
+                  <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
+                    <span className="text-sm font-bold">{formatPrice(l.price)}</span>
+                    {l.status === 'active' && (
+                      <span className="badge-success">{t('profile.active')}</span>
+                    )}
+                    {l.status === 'sold' && (
+                      <span className="badge bg-surface2 text-muted">{t('listing.sold')}</span>
+                    )}
+                    {l.status === 'archived' && (
+                      <span className="text-xs text-muted">{l.status}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Действия */}
+                <div className="flex shrink-0 items-center gap-1">
+                  {l.status === 'active' && (
+                    <>
+                      <button
+                        className="icon-btn"
+                        title={t('listing.bump')}
+                        onClick={() => bump(l.id!)}
+                      >
+                        <Icon name="arrowUp" size={18} />
+                      </button>
+                      <button
+                        className="icon-btn"
+                        title={t('listing.markSold')}
+                        onClick={() => markSold(l.id!)}
+                      >
+                        <Icon name="check" size={18} />
+                      </button>
+                    </>
+                  )}
+                  <button
+                    className="icon-btn text-danger"
+                    title={t('listing.delete')}
+                    onClick={() => doDelete(l.id!)}
+                  >
+                    <Icon name="trash" size={18} />
+                  </button>
+                </div>
               </div>
-              <div className="flex gap-1.5 shrink-0">
-                {l.status === 'active' && (
-                  <>
-                    <button className="chip text-xs" onClick={async () => { await bumpListing(l.id!); }}>↑ {t('listing.bump')}</button>
-                    <button className="chip text-xs" onClick={async () => { await setListingStatus(l.id!, 'sold'); setItems(await myListings(user.uid)) }}>{t('listing.markSold')}</button>
-                  </>
-                )}
-                <button className="chip text-xs text-danger" onClick={async () => { if (confirm('?')) { await deleteListing(l.id!); setItems(await myListings(user.uid)) } }}>✕</button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
     </div>
   )

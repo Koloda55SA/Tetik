@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useAuth } from '../lib/auth'
 import { listGroupChats, subscribeMyDms } from '../lib/db'
+import { avatarHue, avatarInk } from '../lib/format'
 import type { ChatMeta } from '../lib/types'
+import Icon from '../components/Icons'
 
 export default function Chats() {
   const { t } = useTranslation()
@@ -11,9 +13,13 @@ export default function Chats() {
   const [tab, setTab] = useState<'groups' | 'dms'>('groups')
   const [groups, setGroups] = useState<ChatMeta[]>([])
   const [dms, setDms] = useState<ChatMeta[]>([])
+  const [loadingGroups, setLoadingGroups] = useState(true)
 
   useEffect(() => {
-    listGroupChats().then(setGroups).catch(() => {})
+    listGroupChats()
+      .then(setGroups)
+      .catch(() => {})
+      .finally(() => setLoadingGroups(false))
   }, [])
 
   useEffect(() => {
@@ -28,53 +34,110 @@ export default function Chats() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="font-display font-bold text-xl mb-4">{t('chat.title')}</h1>
+    <div className="max-w-2xl mx-auto space-y-4">
+      <h1 className="section-title">{t('chat.title')}</h1>
 
-      <div className="flex gap-2 mb-4">
-        <button className={`chip ${tab === 'groups' ? 'chip-active' : ''}`} onClick={() => setTab('groups')}>
+      {/* Табы */}
+      <div className="flex gap-2">
+        <button
+          className={`chip ${tab === 'groups' ? 'chip-active' : ''}`}
+          onClick={() => setTab('groups')}
+        >
           {t('chat.groups')}
         </button>
-        <button className={`chip ${tab === 'dms' ? 'chip-active' : ''}`} onClick={() => setTab('dms')}>
+        <button
+          className={`chip ${tab === 'dms' ? 'chip-active' : ''}`}
+          onClick={() => setTab('dms')}
+        >
           {t('chat.dms')}
         </button>
       </div>
 
       {tab === 'groups' ? (
-        <div className="space-y-2">
-          {groups.map((c) => (
-            <Link key={c.id} to={`/chats/${c.id}`} className="card p-3.5 flex items-center gap-3 hover:border-accent transition-colors">
-              <div className="w-11 h-11 rounded-full bg-surface2 text-accent flex items-center justify-center font-bold shrink-0">
-                {c.title.slice(0, 1)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-sm">{c.title}</p>
-                <p className="text-xs text-muted line-clamp-1">{c.lastMsg || t('chat.empty')}</p>
-              </div>
-              <span className="text-xs text-muted shrink-0">{t('chat.members', { count: c.members.length })}</span>
-            </Link>
-          ))}
-          {groups.length === 0 && <div className="card p-8 text-center text-muted text-sm">{t('chat.empty')}</div>}
-        </div>
+        loadingGroups ? (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="skeleton h-20 w-full" />
+            ))}
+          </div>
+        ) : groups.length === 0 ? (
+          <div className="card p-10 text-center">
+            <Icon name="chat" size={36} strokeWidth={1.5} className="mx-auto text-muted" />
+            <p className="mt-3 text-sm text-muted">{t('chat.empty')}</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {groups.map((c) => {
+              const initial = c.title.slice(0, 1).toUpperCase()
+              const bg = avatarHue(c.title)
+              const color = avatarInk(c.title)
+              return (
+                <Link
+                  key={c.id}
+                  to={`/chats/${c.id}`}
+                  className="card card-hover flex items-center gap-3 p-4"
+                >
+                  <div
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-[15px] font-bold"
+                    style={{ background: bg, color }}
+                  >
+                    {initial}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[15px] font-bold leading-tight">{c.title}</p>
+                    <p className="mt-0.5 line-clamp-1 text-sm text-muted">
+                      {c.lastMsg || t('chat.empty')}
+                    </p>
+                  </div>
+                  <span className="shrink-0 text-xs text-muted">
+                    {t('chat.members', { count: c.members.length })}
+                  </span>
+                </Link>
+              )
+            })}
+          </div>
+        )
       ) : !user ? (
-        <div className="card p-8 text-center">
-          <p className="text-muted mb-4">{t('chat.needAuth')}</p>
-          <Link to="/login" className="btn-primary">{t('auth.login')}</Link>
+        <div className="card p-10 text-center">
+          <Icon name="chat" size={36} strokeWidth={1.5} className="mx-auto text-muted" />
+          <p className="mt-3 text-sm text-muted">{t('chat.needAuth')}</p>
+          <Link to="/login" className="btn-primary mt-5 inline-flex">
+            {t('auth.login')}
+          </Link>
+        </div>
+      ) : dms.length === 0 ? (
+        <div className="card p-10 text-center">
+          <Icon name="chat" size={36} strokeWidth={1.5} className="mx-auto text-muted" />
+          <p className="mt-3 text-sm text-muted">{t('chat.empty')}</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {dms.map((c) => (
-            <Link key={c.id} to={`/chats/${c.id}`} className="card p-3.5 flex items-center gap-3 hover:border-accent transition-colors">
-              <div className="w-11 h-11 rounded-full bg-surface2 flex items-center justify-center font-bold shrink-0">
-                {dmTitle(c).slice(0, 1)}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold text-sm">{dmTitle(c)}</p>
-                <p className="text-xs text-muted line-clamp-1">{c.lastMsg || '...'}</p>
-              </div>
-            </Link>
-          ))}
-          {dms.length === 0 && <div className="card p-8 text-center text-muted text-sm">{t('chat.empty')}</div>}
+          {dms.map((c) => {
+            const name = dmTitle(c)
+            const initial = name.slice(0, 1).toUpperCase()
+            const bg = avatarHue(name)
+            const color = avatarInk(name)
+            return (
+              <Link
+                key={c.id}
+                to={`/chats/${c.id}`}
+                className="card card-hover flex items-center gap-3 p-4"
+              >
+                <div
+                  className="grid h-12 w-12 shrink-0 place-items-center rounded-full text-[15px] font-bold"
+                  style={{ background: bg, color }}
+                >
+                  {initial}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[15px] font-bold leading-tight">{name}</p>
+                  <p className="mt-0.5 line-clamp-1 text-sm text-muted">
+                    {c.lastMsg || '...'}
+                  </p>
+                </div>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>
